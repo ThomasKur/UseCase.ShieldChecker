@@ -39,7 +39,7 @@ The platform consists of several key components:
 
 ## Getting Started
 
-Check the [Deployment page](Deployment.md) for detailed instructions regarding deployment.
+Check the [Deployment page](docs/Deployment.md) for detailed instructions regarding deployment.
 
 ## Deployment and Custom Build Options (For Code Contributors)
 
