@@ -14,7 +14,9 @@ param appName string
 param domainFQDN string
 param domainControllerName string
 
-param storageAccountDCRName string
+param storageAccountDCRName string = ''
+
+param apiAppClientId string
 
 param applicationIdentityClientId string
 param applicationIdentityId string
@@ -166,7 +168,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'SC_AZ_DC_SUBNET_ID', value: subnetDcResourceId }
             { name: 'SC_DOMAIN_FQDN', value: domainFQDN }
             { name: 'SC_DOMAIN_CONTROLLER_NAME', value: domainControllerName }
-            { name: 'SC_STORAGE_DC_DSC', value: storageAccountDCRName }
+            { name: 'API_APP_CLIENT_ID', value: apiAppClientId }
+            { name: 'API_APP_TENANT_ID', value: tenant().tenantId }
           ]
         }
       ]

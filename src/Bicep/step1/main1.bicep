@@ -16,11 +16,11 @@ param location string = resourceGroup().location
 
 param appName string
 
-param adminUsername string
+param adminUsername string = ''
 @secure()
-param adminDcPassword string
+param adminDcPassword string = ''
 @secure()
-param adminWorkerPassword string
+param adminWorkerPassword string = ''
 
 param domainControllerName string = 'dc01'
 param domainFQDN string
@@ -29,6 +29,9 @@ param sleepSeconds int = 60
 param EnterpriseAppTenantDomain string = 'kurcontoso.onmicrosoft.com'
 param EnterpriseAppTenantId string = tenant().tenantId
 param EnterpriseAppClientId string
+
+@description('Client ID of the API App Registration, used by the API container for token validation.')
+param apiAppClientId string
 
 @description('Image tag for the WebApp container image in ACR.')
 param webAppImageTag string = 'latest'
@@ -66,27 +69,6 @@ module deployment_identity_db 'resource.identity.db.bicep' = {
     sleepSeconds: sleepSeconds
   }
 }
-@description('Deployment module of identity for vmdc id')
-module deployment_identity_vmdc 'resource.identity.vmdc.bicep' = {
-  name: 'module.identity.vmdc'
-  params: {
-    deployEnvironment: deployEnvironment
-    location: location
-    appName: appName
-  }
-}
-
-@description('Deployment module of storage account')
-module deployment_storage 'resource.storage.bicep' = {
-  name: 'module.storage'
-  params: {
-    deployEnvironment: deployEnvironment
-    location: location
-    appName: appName
-    subnetManagementResourceId: deployment_network.outputs.subnetManagementResourceId
-  }
-}
-
 @description('Deployment module of key vault')
 module deployment_kv 'resource.kv.bicep' = {
   name: 'module.kv'
@@ -94,9 +76,6 @@ module deployment_kv 'resource.kv.bicep' = {
     deployEnvironment: deployEnvironment
     location: location
     applicationIdentityPrincipalId: deployment_identity_app.outputs.applicationIdentityPrincipalId
-    adminDcPassword: adminDcPassword
-    adminWorkerPassword: adminWorkerPassword
-    adminUsername: adminUsername
     appName: appName
   }
 }
@@ -173,12 +152,13 @@ module deployment_web 'resource.web.bicep' = {
     EnterpriseAppTenantId: EnterpriseAppTenantId
     domainFQDN: domainFQDN
     domainControllerName: domainControllerName
-    storageAccountDCRName: deployment_storage.outputs.storageAccountDCRName
+    storageAccountDCRName: ''
     containerAppsEnvironmentId: deployment_containerenv.outputs.containerAppsEnvironmentId
     containerRegistryLoginServer: deployment_acr.outputs.containerRegistryLoginServer
     appInsightsInstrumentationKey: deployment_logs.outputs.appInsightsInstrumentationKey
     webAppImageTag: webAppImageTag
     apiImageTag: apiImageTag
+    apiAppClientId: apiAppClientId
   }
 }
 
@@ -189,11 +169,12 @@ output sqlServerDatabaseName string = deployment_sql.outputs.sqlServerDatabaseNa
 output subnetWorkerNetworkResourceId string = deployment_network.outputs.subnetWorkerResourceId
 output subnetManagementNetworkResourceId string = deployment_network.outputs.subnetManagementResourceId
 output subnetDcNetworkResourceId string = deployment_network.outputs.subnetDcResourceId
-output storageAccountName string = deployment_storage.outputs.storageAccountDCRName
 output sqlConnectionString string = deployment_sql.outputs.sqlConnectionString
 output applicationIdentityName string = deployment_identity_app.outputs.applicationIdentityName
-output vmDcIdentityName string = deployment_identity_vmdc.outputs.vmDcIdentityName
 output webAppName string = deployment_web.outputs.webAppName
+output webAppFqdn string = deployment_web.outputs.webAppFqdn
+output apiAppName string = deployment_web.outputs.apiAppName
+output apiAppFqdn string = deployment_web.outputs.apiAppFqdn
 output functionAppHostname string = deployment_web.outputs.functionAppHostname
 output containerRegistryName string = deployment_acr.outputs.containerRegistryName
 output containerRegistryLoginServer string = deployment_acr.outputs.containerRegistryLoginServer
