@@ -14,14 +14,16 @@ namespace ShieldChecker.WebApp.Pages.FirstRun
         private readonly ILogger<IndexModel> _logger;
         private readonly ShieldCheckerContext _context;
         private readonly IHostEnvironment _hostEnvironment;
+        private readonly IConfiguration _configuration;
         private readonly List<string> requiredGraphScopes;
         private readonly List<string> requiredMsMdeScopes;
 
-        public Step2(ILogger<IndexModel> logger, ShieldCheckerContext context,IHostEnvironment hostEnvironment)
+        public Step2(ILogger<IndexModel> logger, ShieldCheckerContext context, IHostEnvironment hostEnvironment, IConfiguration configuration)
         {
             _logger = logger;
             _context = context;
             _hostEnvironment = hostEnvironment;
+            _configuration = configuration;
             requiredGraphScopes = new List<string> { "SecurityAlert.ReadWrite.All" };
             requiredMsMdeScopes = new List<string> { "Machine.ReadWrite.All",  "Machine.Offboard" };
         }
@@ -91,6 +93,9 @@ namespace ShieldChecker.WebApp.Pages.FirstRun
             }
 
 
+            FirstRun.HostServiceAppRegistrationScript = BuildHostServiceAppRegistrationScript(
+                _configuration["AzureAd:ClientId"] ?? "<ShieldChecker-API-Client-ID>");
+
             return Page();
         }
 
@@ -109,6 +114,54 @@ namespace ShieldChecker.WebApp.Pages.FirstRun
             var handler = new JwtSecurityTokenHandler();
             var TokenDecoded = handler.ReadJwtToken(t.Token);
             return TokenDecoded.Claims.Where(c => c.Type == "oid").First().Value;
+        }
+
+        private static string BuildHostServiceAppRegistrationScript(string shieldCheckerApiClientId)
+        {
+            return $@"#Requires -Modules Microsoft.Graph.Applications, Microsoft.Graph.Authentication
+<#
+.SYNOPSIS
+    Creates the ShieldChecker-HostService App Registration and grants all required
+    API permissions, then outputs the credentials for use in the setup wizard.
+
+.NOTES
+    Run as Global Administrator or Application Administrator.
+    Prerequisites: Install-Module Microsoft.Graph -Scope CurrentUser
+#>
+
+[CmdletBinding()]
+param([string]$AppName = 'ShieldChecker-HostService')
+
+Connect-MgGraph -Scopes 'Application.ReadWrite.All','AppRoleAssignment.ReadWrite.All'
+
+$app = New-MgApplication -DisplayName $AppName
+$sp  = New-MgServicePrincipal -AppId $app.AppId
+$secret = Add-MgApplicationPassword -ApplicationId $app.Id `
+    -BodyParameter @{{ PasswordCredential = @{{ DisplayName='HostService-Secret'; EndDateTime=(Get-Date).AddYears(1) }} }}
+
+# ShieldChecker API permissions
+$shieldCheckerSp = Get-MgServicePrincipal -Filter ""appId eq '{shieldCheckerApiClientId}'""
+if ($shieldCheckerSp) {{
+    foreach ($role in $shieldCheckerSp.AppRoles) {{
+        New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $sp.Id `
+            -AppRoleId $role.Id -PrincipalId $sp.Id -ResourceId $shieldCheckerSp.Id | Out-Null
+    }}
+}}
+
+# Defender for Endpoint API permissions
+$mdeSp = Get-MgServicePrincipal -Filter ""appId eq 'fc780465-2017-40d4-a0c5-307022471b92'""
+foreach ($perm in @('Machine.ReadWrite.All','AdvancedQuery.Read.All','Alert.ReadWrite.All','SecurityRecommendation.Read.All')) {{
+    $role = $mdeSp.AppRoles | Where-Object Value -EQ $perm | Select-Object -First 1
+    if ($role) {{ New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $sp.Id `
+        -AppRoleId $role.Id -PrincipalId $sp.Id -ResourceId $mdeSp.Id | Out-Null }}
+}}
+
+$tenantId = (Get-MgContext).TenantId
+Write-Host ""Tenant ID    : $tenantId""
+Write-Host ""Client ID    : $($app.AppId)""
+Write-Host ""Client Secret: $($secret.SecretText)""
+Write-Host ""API Scope    : api://{shieldCheckerApiClientId}""
+Write-Warning ""Store the client secret securely – it will not be shown again.""";
         }
 
     }
