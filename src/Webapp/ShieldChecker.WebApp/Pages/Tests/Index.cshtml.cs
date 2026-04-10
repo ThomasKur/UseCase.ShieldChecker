@@ -31,6 +31,8 @@ namespace ShieldChecker.WebApp.Pages.Tests
             var test = await _context.UseCaseTests.FindAsync(id);
             if (test == null)
             {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    return new JsonResult(new { success = false, error = "Test not found" });
                 return Page();
             }
             TestJob job = new TestJob
@@ -45,8 +47,10 @@ namespace ShieldChecker.WebApp.Pages.Tests
             };
             _context.TestJobs.Add(job);
             await _context.SaveChangesAsync();
-            return RedirectToPage("./../Jobs/Index");
-            
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return new JsonResult(new { success = true, jobId = job.ID });
+            return RedirectToPage("./Index");
         }
         public async Task OnGetAsync(string currentFilter, string searchString, int? pageIndex)
         {
