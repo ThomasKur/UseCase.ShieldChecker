@@ -7,6 +7,15 @@
 
 <h1>Tests</h1>
 
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    var alertClass = Model.StatusMessage.StartsWith("Error:") ? "alert-danger" : "alert-success";
+    <div class="alert @alertClass alert-dismissible fade show" role="alert">
+        @Model.StatusMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <p>
     <a asp-page="Create">Create New</a>
 </p>
@@ -46,6 +55,7 @@
     </thead>
     <tbody>
         @foreach (var item in Model.Test) {
+            bool itemCanShare = Model.TestCanBeShared.TryGetValue(item.ID, out bool itemCs) && itemCs;
             <tr>
                 <td>
                     @if (((int)item.OperatingSystem) == 0){
@@ -82,6 +92,23 @@
                     @if (item.ReadOnly == null || !item.ReadOnly.Value)
                     {
                         <a asp-page="./Delete" asp-route-id="@item.ID"><i class="fa-regular fa-trash-can" data-toggle="tooltip" title="Delete"></i></a>
+
+                        @if (itemCanShare)
+                        {
+                            <form method="post" asp-page-handler="Share" asp-route-id="@item.ID" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-link p-0" title="Share to Community">
+                                    <i class="fa-solid fa-share-nodes"></i>
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="Only tests with a successful last job run can be shared to the community.">
+                                <i class="fa-solid fa-share-nodes"></i>
+                            </span>
+                        }
                     }
 
             </td>
@@ -106,3 +133,13 @@
    class="btn btn-primary @nextDisabled">
     Next
 </a>
+
+@section Scripts {
+    <script>
+        // Initialize Bootstrap tooltips
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
+        });
+    </script>
+}

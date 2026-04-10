@@ -44,6 +44,10 @@ namespace ShieldChecker.WebApp.Models.Db
         public ExecutorUserType ExecutorUserType { get; set; }
         public List<TestJob> TestJobs { get; set; } = new List<TestJob>();
         public List<AutoSchedule> AutoSchedules { get; } = new List<AutoSchedule>();
+
+        /// <summary>Links this test to a shared library entry it was copied from.</summary>
+        public int? SharedLibrarySourceId { get; set; }
+        public SharedTestDefinition? SharedLibrarySource { get; set; }
     }
 
 }

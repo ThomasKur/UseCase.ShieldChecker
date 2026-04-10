@@ -1,0 +1,80 @@
+@page
+@model ShieldChecker.WebApp.Pages.SharedLibrary.ApproveModel
+
+@{
+    ViewData["Title"] = "Review Pending Submissions";
+}
+
+<h1>Review Pending Submissions</h1>
+<hr />
+<div>
+    <a asp-page="./Index">Back to Shared Library</a>
+</div>
+<hr />
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    var alertClass = Model.StatusMessage.StartsWith("Error:") ? "alert-danger" : "alert-success";
+    <div class="alert @alertClass alert-dismissible fade show" role="alert">
+        @Model.StatusMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (!Model.DraftSubmissions.Any())
+{
+    <div class="alert alert-info">No pending submissions.</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>OS</th>
+                <th>MITRE Technique</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Submitted By</th>
+                <th>Submitted At</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.DraftSubmissions)
+            {
+                <tr>
+                    <td>
+                        @if (item.OperatingSystem == ShieldChecker.WebApp.Models.Db.OperatingSystem.Windows)
+                        {
+                            <i class="fa-brands fa-windows"></i>
+                        }
+                        else
+                        {
+                            <i class="fa-brands fa-linux"></i>
+                        }
+                    </td>
+                    <td>@item.MitreTechnique</td>
+                    <td>@item.Name</td>
+                    <td>@item.Description</td>
+                    <td>@item.SubmittedBy?.DisplayName</td>
+                    <td>@item.SubmittedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        <form method="post" asp-page-handler="Approve" asp-route-id="@item.ID" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-success">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                        </form>
+                        <form method="post" asp-page-handler="Reject" asp-route-id="@item.ID" style="display:inline;"
+                              onsubmit="return confirm('Reject and delete this submission?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fa-regular fa-trash-can"></i> Reject
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
