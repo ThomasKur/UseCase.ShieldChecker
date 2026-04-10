@@ -38,6 +38,9 @@ namespace ShieldChecker.HostServiceApi.Controllers
             if (update == null)
                 return BadRequest("Request body is required.");
 
+            // Sanitise the workername before logging to prevent log injection
+            var safeWorkerName = System.Text.RegularExpressions.Regex.Replace(workername, @"[\r\n\t]", "_");
+
             var job = await _context.TestJobs
                 .Where(j => j.WorkerName == workername && j.Status == JobStatus.WaitingForMDE)
                 .OrderByDescending(j => j.WorkerStart)
@@ -45,7 +48,7 @@ namespace ShieldChecker.HostServiceApi.Controllers
 
             if (job == null)
             {
-                _logger.LogWarning("No active job found for worker '{Worker}'.", workername);
+                _logger.LogWarning("No active job found for worker '{Worker}'.", safeWorkerName);
                 return NotFound();
             }
 
@@ -57,7 +60,7 @@ namespace ShieldChecker.HostServiceApi.Controllers
 
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("Updated job {JobId} for worker '{Worker}' with status {Status}.", job.ID, workername, job.Status);
+            _logger.LogInformation("Updated job {JobId} for worker '{Worker}' with status {Status}.", job.ID, safeWorkerName, job.Status);
             return Ok();
         }
     }

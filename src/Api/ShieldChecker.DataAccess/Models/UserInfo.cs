@@ -19,7 +19,7 @@ namespace ShieldChecker.DataAccess.Models
                 UserPrincipalName = User.Identity?.Name; 
             } else
             {
-                UserPrincipalName = "Unknonw UPN";
+                UserPrincipalName = "Unknown UPN";
             }
             Id = new Guid(User.Claims.Where(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").First().Value);
         }

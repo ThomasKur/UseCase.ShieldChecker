@@ -38,11 +38,14 @@ namespace ShieldChecker.HostServiceApi.Controllers
             if (string.IsNullOrWhiteSpace(workername))
                 return BadRequest("workername is required.");
 
+            // Sanitise the workername before logging to prevent log injection
+            var safeWorkerName = System.Text.RegularExpressions.Regex.Replace(workername, @"[\r\n\t]", "_");
+
             // Check that the domain controller is ready before processing jobs
             var systemStatus = await _context.SystemStatus.FirstOrDefaultAsync(ct);
             if (systemStatus == null || systemStatus.DomainControllerStatus != DomainControllerStatus.Initialized)
             {
-                _logger.LogInformation("Domain Controller is not yet ready, skip processing jobs for worker '{Worker}'.", workername);
+                _logger.LogInformation("Domain Controller is not yet ready, skip processing jobs for worker '{Worker}'.", safeWorkerName);
                 return BadRequest("Domain Controller is not yet ready, skip processing jobs");
             }
 
@@ -83,7 +86,7 @@ namespace ShieldChecker.HostServiceApi.Controllers
                 Domain = (string?)null
             };
 
-            _logger.LogInformation("Assigned job {JobId} to worker '{Worker}'.", job.ID, workername);
+            _logger.LogInformation("Assigned job {JobId} to worker '{Worker}'.", job.ID, safeWorkerName);
             return Ok(response);
         }
     }
