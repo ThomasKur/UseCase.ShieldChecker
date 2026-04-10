@@ -1,0 +1,132 @@
+@page
+@model ShieldChecker.WebApp.Pages.SharedLibrary.IndexModel
+@using ShieldChecker.WebApp.Models.Db
+@using DbOs = ShieldChecker.WebApp.Models.Db.OperatingSystem
+
+@{
+    ViewData["Title"] = "Shared Test Library";
+}
+
+<h1>Shared Test Library</h1>
+<hr />
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    var alertClass = Model.StatusMessage.StartsWith("Error:") ? "alert-danger" : "alert-success";
+    <div class="alert @alertClass alert-dismissible fade show" role="alert">
+        @Model.StatusMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<form method="get" class="mb-3">
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input type="text" name="SearchString" value="@Model.SearchString" class="form-control" placeholder="Search by name or description" />
+        </div>
+        <div class="col-md-3">
+            <input type="text" name="MitreTechniqueFilter" value="@Model.MitreTechniqueFilter" class="form-control" placeholder="MITRE Technique (e.g. T1059)" />
+        </div>
+        <div class="col-md-2">
+            <select name="OsFilter" class="form-select">
+                <option value="">All OS</option>
+                <option value="Windows" selected="@(Model.OsFilter == "Windows")">Windows</option>
+                <option value="Linux" selected="@(Model.OsFilter == "Linux")">Linux</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Search</button>
+        </div>
+        <div class="col-md-1">
+            <a asp-page="./Index" class="btn btn-secondary w-100">Clear</a>
+        </div>
+    </div>
+</form>
+
+@if (Model.IsAdmin)
+{
+    <div class="mb-2">
+        <a asp-page="./Approve" class="btn btn-warning">
+            <i class="fa-solid fa-clipboard-check"></i> Review Pending Submissions
+        </a>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>OS</th>
+            <th>MITRE Technique</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Consumed By</th>
+            @if (Model.IsAdmin)
+            {
+                <th>Status</th>
+                <th>Submitted By</th>
+            }
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.SharedTests)
+        {
+            <tr>
+                <td>
+                    @if (item.OperatingSystem == DbOs.Windows)
+                    {
+                        <i class="fa-brands fa-windows"></i>
+                    }
+                    else
+                    {
+                        <i class="fa-brands fa-linux"></i>
+                    }
+                </td>
+                <td>@item.MitreTechnique</td>
+                <td>@item.Name</td>
+                <td>@item.Description</td>
+                <td>@(Model.ConsumptionCounts.TryGetValue(item.ID, out var cnt) ? cnt : 0)</td>
+                @if (Model.IsAdmin)
+                {
+                    <td>
+                        @if (item.Status == SharedTestStatus.Approved)
+                        {
+                            <span class="badge bg-success">Approved</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Draft</span>
+                        }
+                    </td>
+                    <td>@item.SubmittedBy?.DisplayName</td>
+                }
+                <td>
+                    @if (item.Status == SharedTestStatus.Approved)
+                    {
+                        <form method="post" asp-page-handler="AddToMyTests" asp-route-id="@item.ID" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Add to My Tests">
+                                <i class="fa-solid fa-plus"></i> Add to My Tests
+                            </button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        @if (!Model.SharedTests.Any())
+        {
+            <tr>
+                <td colspan="@(Model.IsAdmin ? 8 : 6)" class="text-center text-muted">No shared tests found.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
+        });
+    </script>
+}

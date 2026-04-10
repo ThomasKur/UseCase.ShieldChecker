@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShieldChecker.WebApp;
 
@@ -11,9 +12,11 @@ using ShieldChecker.WebApp;
 namespace ShieldChecker.WebApp.Migrations
 {
     [DbContext(typeof(ShieldCheckerContext))]
-    partial class ShieldCheckerContextModelSnapshot : ModelSnapshot
+    [Migration("20260410060438_AddSharedTestLibrary")]
+    partial class AddSharedTestLibrary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

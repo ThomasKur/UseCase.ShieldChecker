@@ -11,6 +11,16 @@
     <a asp-page="./Index">Back to List</a>
 </div>
 <hr />
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    var alertClass = Model.StatusMessage.StartsWith("Error:") ? "alert-danger" : "alert-success";
+    <div class="alert @alertClass alert-dismissible fade show" role="alert">
+        @Model.StatusMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <div class="row">
     <div class="col-md-12">
         <form method="post">
@@ -101,10 +111,32 @@
                 <span asp-validation-for="Test.ScriptCleanup" class="text-danger"></span>
             </div>
             
-            <div class="form-group">
+            <div class="form-group mt-3">
                 <input type="submit" value="Save" onclick="window.get" class="btn btn-secondary" /> <input type="submit" value="Save and Close" onclick="window.get" class="btn btn-primary" />
             </div>
         </form>
+
+        <hr />
+        <h2 class="mt-2">Community</h2>
+        @if (Model.CanShare)
+        {
+            <form method="post" asp-page-handler="Share" asp-route-id="@Model.Test.ID">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fa-solid fa-share-nodes"></i> Share to Community
+                </button>
+            </form>
+        }
+        else
+        {
+            <span data-bs-toggle="tooltip" data-bs-placement="top"
+                  title="Only tests with a successful last job run can be shared to the community."
+                  style="display:inline-block;">
+                <button type="button" class="btn btn-outline-secondary" disabled>
+                    <i class="fa-solid fa-share-nodes"></i> Share to Community
+                </button>
+            </span>
+        }
     </div>
 </div>
 
@@ -117,4 +149,10 @@
         await Html.RenderPartialAsync("_MonacoEditorLoader");
     }
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
+        });
+    </script>
 }
