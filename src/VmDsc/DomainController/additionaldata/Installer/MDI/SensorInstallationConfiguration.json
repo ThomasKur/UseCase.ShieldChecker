@@ -1,9 +1,0 @@
-{
-  "$type": "SensorInstallationConfiguration",
-  "WorkspaceApplicationSensorApiEndpoint": {
-    "$type": "EndpointData",
-    "Address": "kurcontososensorapi.atp.azure.com",
-    "Port": 443
-  },
-  "WorkspaceId": "9a6fd874-bfb3-43ef-9c26-da95ff6b2a06"
-}

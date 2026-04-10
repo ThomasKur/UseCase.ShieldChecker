@@ -10,12 +10,6 @@ param location string
 
 param appName string
 
-param adminUsername string 
-@secure()
-param adminDcPassword string
-@secure()
-param adminWorkerPassword string
-
 param applicationIdentityPrincipalId string
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -57,29 +51,6 @@ resource keyVaultSecretUserRoleAssignment 'Microsoft.Authorization/roleAssignmen
     principalType: 'ServicePrincipal'
   }
 }
-
-resource secretUsr 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'AdminUsername'
-  properties: {
-    value: adminUsername
-  }
-}
-resource secretPw 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'AdminDcPassword'
-  properties: {
-    value: adminDcPassword
-  }
-}
-resource secretWorkerPw 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'AdminWorkerPassword'
-  properties: {
-    value: adminWorkerPassword
-  }
-}
-
 
 output kvUrl string = kv.properties.vaultUri
 output kvName string = kv.name

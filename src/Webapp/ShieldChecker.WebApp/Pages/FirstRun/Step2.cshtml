@@ -71,6 +71,38 @@
                 height='50px'></Monaco-Editor>
             </div>
         }
+
+        <h3>HostService App Registration</h3>
+        <div class="alert alert-info" role="alert">
+            <strong><i class="fa-solid fa-circle-info"></i> HostService setup</strong> –
+            If you are deploying the ShieldChecker HostService in your environment, run the
+            PowerShell script below to create the required App Registration in your Azure AD tenant.
+            Admin consent requires a <strong>Global Administrator</strong> or
+            <strong>Application Administrator</strong>.
+            The script grants the App Registration the necessary permissions to call the
+            <strong>ShieldChecker API</strong> and the
+            <strong>Microsoft Defender for Endpoint API</strong>.
+            After running the script, use the outputted credentials in the
+            <code>ScHostSvc --setup</code> wizard.
+        </div>
+        <div class="form-group">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0">App Registration Script (PowerShell)</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="copyHostServiceScript()">
+                    <i class="fa-regular fa-copy"></i> Copy to clipboard
+                </button>
+            </div>
+            <input type="hidden" id="hostServiceScriptValue"
+                   value="@Html.Raw(System.Web.HttpUtility.HtmlAttributeEncode(Model.FirstRun.HostServiceAppRegistrationScript))" />
+            <Monaco-Editor language="powershell"
+                           value="@Html.DisplayFor(model => model.FirstRun.HostServiceAppRegistrationScript)"
+                           width='100%'
+                           height='300px'
+                           id="hostServiceScript"
+                           readonly="true"></Monaco-Editor>
+        </div>
+
         <div class="form-group">
              
             @if (Model.FirstRun.IsMsGraphOK && Model.FirstRun.IsMsMdeOK)
@@ -90,4 +122,15 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
         await Html.RenderPartialAsync("_MonacoEditorLoader");
     }
+    <script>
+        function copyHostServiceScript() {
+            const val = document.getElementById('hostServiceScriptValue').value;
+            navigator.clipboard.writeText(val).then(() => {
+                const btn = event.currentTarget;
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                setTimeout(() => { btn.innerHTML = original; }, 2000);
+            });
+        }
+    </script>
 }

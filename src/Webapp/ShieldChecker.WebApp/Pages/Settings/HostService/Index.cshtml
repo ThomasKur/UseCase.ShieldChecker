@@ -1,0 +1,152 @@
+@page
+@model ShieldChecker.WebApp.Pages.Settings.HostService.IndexModel
+@{
+    ViewData["Title"] = "HostService Download & Setup";
+}
+
+<h1>HostService – Download &amp; Setup</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-12">
+
+        <h2>What is the ShieldChecker HostService?</h2>
+        <p>
+            The <strong>ShieldChecker HostService</strong> (<code>ScHostSvc</code>) is a lightweight,
+            cross-platform background service that you install in your own environment (on-premises or
+            in an Azure VM). It polls the ShieldChecker API for scheduled test jobs, executes the
+            PowerShell scripts on the local machine, and reports the results back to the API.
+        </p>
+        <p>
+            Unlike the managed Azure Worker VMs, the HostService authenticates using an
+            <strong>App Registration</strong> (client credentials flow), so no Azure managed identity
+            is required on the host.
+        </p>
+
+        <h2>Download</h2>
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fa-brands fa-windows"></i> Windows (x64)</h5>
+                        <p class="card-text">Self-contained single-file executable for Windows Server 2019+ and Windows 10/11.</p>
+                        <a href="https://github.com/ThomasKur/UseCase.ShieldChecker/releases/latest/download/ScHostSvc-win-x64.zip"
+                           class="btn btn-primary" target="_blank">
+                            <i class="fa-solid fa-download"></i> Download ScHostSvc-win-x64.zip
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fa-brands fa-linux"></i> Linux (x64)</h5>
+                        <p class="card-text">Self-contained single-file executable for Ubuntu 22.04+, RHEL 8+, and other glibc-based distributions.</p>
+                        <a href="https://github.com/ThomasKur/UseCase.ShieldChecker/releases/latest/download/ScHostSvc-linux-x64.tar.gz"
+                           class="btn btn-primary" target="_blank">
+                            <i class="fa-solid fa-download"></i> Download ScHostSvc-linux-x64.tar.gz
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2>Installation</h2>
+        <ol>
+            <li>
+                <strong>Create the App Registration</strong> in your Azure AD tenant using the
+                PowerShell script below (Step 1).
+            </li>
+            <li>
+                <strong>Extract</strong> the downloaded archive to a folder on the target machine
+                (e.g. <code>C:\ShieldCheckerHostService</code> on Windows or
+                <code>/opt/shieldchecker-hostservice</code> on Linux).
+            </li>
+            <li>
+                <strong>Run the setup wizard</strong>:
+                <pre class="mt-2"><code># Windows
+ScHostSvc.exe --setup
+
+# Linux
+./ScHostSvc --setup</code></pre>
+                The wizard will prompt for your Tenant ID, Client ID, Client Secret, and the
+                ShieldChecker API hostname, validate the permissions, write
+                <code>appsettings.json</code>, and optionally register the service.
+            </li>
+            <li>
+                <strong>Start the service</strong>:
+                <pre class="mt-2"><code># Windows
+sc start ShieldCheckerHostService
+
+# Linux
+sudo systemctl start shieldchecker-hostservice</code></pre>
+            </li>
+        </ol>
+
+        <h2>Step 1 – Create App Registration in your tenant</h2>
+
+        <div class="alert alert-warning" role="alert">
+            <strong><i class="fa-solid fa-triangle-exclamation"></i> Admin consent required.</strong>
+            The script below uses <code>Connect-MgGraph</code> and grants application permissions
+            that require admin consent.  You must run it as a
+            <strong>Global Administrator</strong> or <strong>Application Administrator</strong>
+            in your Azure AD tenant.
+        </div>
+
+        <p>
+            The script creates a new App Registration named <code>ShieldChecker-HostService</code>,
+            generates a client secret, and assigns the following application permissions:
+        </p>
+        <ul>
+            <li>
+                <strong>ShieldChecker API</strong> – all application roles exposed by this instance
+                (required to poll for jobs and submit results)
+            </li>
+            <li>
+                <strong>Microsoft Defender for Endpoint API</strong>:
+                <code>Machine.ReadWrite.All</code>, <code>AdvancedQuery.Read.All</code>,
+                <code>Alert.ReadWrite.All</code>, <code>SecurityRecommendation.Read.All</code>
+            </li>
+        </ul>
+
+        <p>
+            Prerequisites: <code>Install-Module Microsoft.Graph -Scope CurrentUser</code>
+        </p>
+
+        <div class="form-group mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0">App Registration Script (PowerShell)</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="copyAppRegScript()">
+                    <i class="fa-regular fa-copy"></i> Copy to clipboard
+                </button>
+            </div>
+            <input type="hidden" id="appRegScriptValue" value="@Html.Raw(System.Web.HttpUtility.HtmlAttributeEncode(Model.AppRegistrationScript))" />
+            <Monaco-Editor language="powershell"
+                           value="@Html.DisplayFor(m => m.AppRegistrationScript)"
+                           width="100%"
+                           height="500px"
+                           id="appRegScript"
+                           readonly="true"></Monaco-Editor>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+        await Html.RenderPartialAsync("_MonacoEditorLoader");
+    }
+    <script>
+        function copyAppRegScript() {
+            const val = document.getElementById('appRegScriptValue').value;
+            navigator.clipboard.writeText(val).then(() => {
+                const btn = event.currentTarget;
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                setTimeout(() => { btn.innerHTML = original; }, 2000);
+            });
+        }
+    </script>
+}
