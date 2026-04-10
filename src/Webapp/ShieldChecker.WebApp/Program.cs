@@ -32,16 +32,29 @@ namespace ShieldChecker.WebApp
             builder.Services.AddRazorPages()
                 .AddMicrosoftIdentityUI();
 
-            builder.Services.AddDbContext<ShieldCheckerContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetValue<string>("AzureSqlDatabase")));
-            builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+            // EF Core is no longer used directly in the WebApp – all data access goes
+            // through the BackendApi. Keeping DB context only for development/migration tooling.
+            if (builder.Environment.IsDevelopment())
+            {
+                builder.Services.AddDbContext<ShieldCheckerContext>(options =>
+                    options.UseSqlServer(builder.Configuration.GetValue<string>("AzureSqlDatabase")));
+                builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+            }
+
             if (builder.Environment.IsProduction())
             {
                 
                 builder.Configuration.AddAzureKeyVault(new Uri(builder.Configuration["KEYVAULT_URI"]),new DefaultAzureCredential());
             }
             builder.Services.AddServerSideBlazor();
+            builder.Services.AddHttpContextAccessor();
             builder.Services.AddHttpClient();
+
+            // ── Backend API typed HTTP client ─────────────────────────────────────
+            // The BackendApiService calls the internal ShieldChecker Backend API container
+            // using the WebApp's managed identity (WebApp.Access AppRole).
+            builder.Services.AddHttpClient<IBackendApiService, BackendApiService>();
+
             builder.Services.AddScoped<IAzureFunctionService, AzureFunctionService>();
 
             var app = builder.Build();
@@ -58,17 +71,6 @@ namespace ShieldChecker.WebApp
                 app.UseDeveloperExceptionPage();
                 app.UseMigrationsEndPoint();
             }
-            using (var scope = app.Services.CreateScope())
-            {
-                var services = scope.ServiceProvider;
-
-                var context = services.GetRequiredService<ShieldCheckerContext>();
-
-                DbInitializer.Initialize(context, app.Environment);
-
-  
-            }
-            
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();

@@ -30,14 +30,26 @@ param EnterpriseAppTenantDomain string = 'kurcontoso.onmicrosoft.com'
 param EnterpriseAppTenantId string = tenant().tenantId
 param EnterpriseAppClientId string
 
-@description('Client ID of the API App Registration, used by the API container for token validation.')
-param apiAppClientId string
+@description('Client ID of the ShieldChecker-BackendApi app registration (WebApp.Access AppRole).')
+param backendApiAppClientId string
+
+@description('Client ID of the ShieldChecker-HostServiceApi app registration (HostService.Access AppRole).')
+param hostServiceApiAppClientId string
+
+@description('Client ID of the ShieldChecker-ImportApi app registration (Import.SharedLibrary AppRole).')
+param importApiAppClientId string
 
 @description('Image tag for the WebApp container image in ACR.')
 param webAppImageTag string = 'latest'
 
-@description('Image tag for the API container image in ACR.')
-param apiImageTag string = 'latest'
+@description('Image tag for the BackendApi container image in ACR.')
+param backendApiImageTag string = 'latest'
+
+@description('Image tag for the HostServiceApi container image in ACR.')
+param hostServiceApiImageTag string = 'latest'
+
+@description('Image tag for the ImportApi container image in ACR.')
+param importApiImageTag string = 'latest'
 
 @description('Deployment module of network')
 module deployment_network 'resource.network.bicep' = {
@@ -157,8 +169,12 @@ module deployment_web 'resource.web.bicep' = {
     containerRegistryLoginServer: deployment_acr.outputs.containerRegistryLoginServer
     appInsightsInstrumentationKey: deployment_logs.outputs.appInsightsInstrumentationKey
     webAppImageTag: webAppImageTag
-    apiImageTag: apiImageTag
-    apiAppClientId: apiAppClientId
+    backendApiImageTag: backendApiImageTag
+    hostServiceApiImageTag: hostServiceApiImageTag
+    importApiImageTag: importApiImageTag
+    backendApiAppClientId: backendApiAppClientId
+    hostServiceApiAppClientId: hostServiceApiAppClientId
+    importApiAppClientId: importApiAppClientId
   }
 }
 
@@ -173,6 +189,13 @@ output sqlConnectionString string = deployment_sql.outputs.sqlConnectionString
 output applicationIdentityName string = deployment_identity_app.outputs.applicationIdentityName
 output webAppName string = deployment_web.outputs.webAppName
 output webAppFqdn string = deployment_web.outputs.webAppFqdn
+output backendApiAppName string = deployment_web.outputs.backendApiAppName
+output backendApiAppFqdn string = deployment_web.outputs.backendApiAppFqdn
+output hostServiceApiAppName string = deployment_web.outputs.hostServiceApiAppName
+output hostServiceApiAppFqdn string = deployment_web.outputs.hostServiceApiAppFqdn
+output importApiAppName string = deployment_web.outputs.importApiAppName
+output importApiAppFqdn string = deployment_web.outputs.importApiAppFqdn
+// Kept for backward compatibility
 output apiAppName string = deployment_web.outputs.apiAppName
 output apiAppFqdn string = deployment_web.outputs.apiAppFqdn
 output functionAppHostname string = deployment_web.outputs.functionAppHostname
