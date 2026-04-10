@@ -115,12 +115,15 @@ namespace ShieldChecker.WebApp.Pages.Tests
 
             var currentUser = UserInfo.EnsureUserInDb(User, _context);
 
-            // Check if a draft or approved submission for this test already exists (same source)
-            var existing = await _context.SharedTestLibrary
-                .FirstOrDefaultAsync(s => s.ExternalId == null
-                    && _context.UseCaseTests
-                        .Where(t => t.SharedLibrarySourceId == s.ID && t.ID == id)
-                        .Any());
+            // Check if a draft or approved submission for this test already exists via SharedLibrarySourceId
+            var test2 = await _context.UseCaseTests
+                .Where(t => t.ID == id && t.SharedLibrarySourceId != null)
+                .Select(t => new { t.SharedLibrarySourceId })
+                .FirstOrDefaultAsync();
+
+            SharedTestDefinition? existing = null;
+            if (test2?.SharedLibrarySourceId != null)
+                existing = await _context.SharedTestLibrary.FindAsync(test2.SharedLibrarySourceId.Value);
 
             if (existing != null && existing.Status == SharedTestStatus.Approved)
             {

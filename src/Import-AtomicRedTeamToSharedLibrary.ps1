@@ -199,7 +199,7 @@ INSERT INTO SharedTestDefinition
      ScriptTest, ScriptPrerequisites, ScriptCleanup,
      ElevationRequired, OperatingSystem, ExecutorSystemType,
      ExecutorUserType, ExternalId, Status,
-     SubmittedBy_Id, SubmittedAt)
+     SubmittedById, SubmittedAt)
 SELECT TOP 1
     @Name, @MitreTechnique, @Description, 'Unknown',
     @ScriptTest, '', '',

@@ -78,7 +78,7 @@ namespace ShieldChecker.WebApp.Pages.SharedLibrary
             // Check if this user already has a test linked to this shared entry
             var existing = await _context.UseCaseTests
                 .FirstOrDefaultAsync(t => t.SharedLibrarySourceId == id
-                    && _context.UserInfo.Any(u => u.Id == currentUser.Id));
+                    && t.CreatedBy.Id == currentUser.Id);
 
             if (existing == null)
             {
