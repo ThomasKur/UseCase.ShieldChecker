@@ -590,7 +590,7 @@ if ($SkipHostServicePackage) {
         dotnet publish $HostServiceSrc --self-contained --configuration Release --runtime linux-x64 -o $linOutDir
         if ($LASTEXITCODE -ne 0) { throw "dotnet publish (linux-x64) failed" }
     } else {
-        # Fall back to pre-built binaries (Deploy/Latest layout from Invoke-Build.ps1)
+        # Fall back to pre-built binaries (Deploy/Latest layout)
         if (Test-Path $PrebuiltHostWin) {
             Write-Host " - Copying pre-built Windows HostService binaries..."
             Copy-Item -Path "$PrebuiltHostWin/*" -Destination $winOutDir -Recurse -Force
