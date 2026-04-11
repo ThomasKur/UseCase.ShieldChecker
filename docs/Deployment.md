@@ -204,28 +204,26 @@ For detailed guidance on test creation and execution, refer to:
 
 ### Updating Existing Deployments
 
-For version updates that only affect the web application and database components:
+For incremental updates, re-run `Invoke-Deploy.ps1` with `-Skip*` switches to target only the components that changed:
 
 ```powershell
-./Invoke-UpdateWebAppAndSql.ps1 -ResourceGroupName "<ResourceGroupName>" `
-                                -sqlServerName "<SQLServerName>" `
-                                -sqlServerDatabaseName "<SQLServerDatabaseName>" `
-                                -webAppName "<WebAppName>" `
-                                -TestDomainFQDN "<TestDomainFQDN>"
+# Container-image-only update (skip infra + SQL)
+./Invoke-Deploy.ps1 -SQLAdminGroupName "<SQLAdminGroupName>" `
+                    -ResourceGroupName "<ResourceGroupName>" `
+                    -WebAppImageTag "2.1.0" `
+                    -SkipAppRegistration -SkipBicep -SkipSqlSetup -SkipHostServicePackage
 ```
 
-**When to use update vs. full deployment:**
-- **Use Update Script:** Minor version updates, web app changes only
-- **Use Full Deployment:** Major version updates, infrastructure changes, new features
+**Available `-Skip*` switches:**
 
-**Parameter Reference for Web Update Only:**
-
-| Parameter | How to Find | Example |
-|-----------|-------------|---------|
-| `ResourceGroupName` | Azure portal or original deployment parameters | `rg-shieldchecker-prod` |
-| `sqlServerName` | Azure portal > SQL servers | `sql-shieldchecker-prod` |
-| `sqlServerDatabaseName` | Azure portal > SQL databases | `sqldb-shieldchecker` |
-| `webAppName` | Azure portal > App Services | `app-shieldchecker-prod` |
+| Switch | Effect |
+|--------|--------|
+| `-SkipAppRegistration` | Skip creating / updating Entra ID App Registrations |
+| `-SkipBicep` | Skip Bicep infrastructure deployment |
+| `-SkipSqlSetup` | Skip SQL schema, permissions and initialisation |
+| `-SkipDockerBuild` | Skip the Docker build step (assumes images already exist locally) |
+| `-SkipDockerPush` | Skip pushing Docker images to ACR |
+| `-SkipHostServicePackage` | Skip building and packaging the HostService zip |
 
 ### Backup and Recovery
 

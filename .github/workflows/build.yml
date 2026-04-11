@@ -10,27 +10,36 @@ on:
 permissions:
   id-token: write
   contents: write
-  
+
 jobs:
-  deploy_infrastructure:
+  build:
     name: Build
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
-    - uses: actions/checkout@main
-    
-    - name: Build
-      shell: pwsh
-      run: |
-        .\Invoke-Build.ps1
-    
-    - uses: ncipollo/release-action@v1
-      with:
-        artifacts: "Deploy/Install.zip"
-        name: "ShieldChecker ${{ inputs.version }}"
-        bodyFile: "CHANGELOG.MD"
-        draft: true
-        generateReleaseNotes: true
-        skipIfReleaseExists: true
+      - uses: actions/checkout@main
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build WebApp
+        run: dotnet build src/Webapp/ShieldChecker.WebApp/ShieldChecker.WebApp.csproj --configuration Release
+
+      - name: Build APIs
+        run: |
+          dotnet build src/Api/ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj --configuration Release
+          dotnet build src/Api/ShieldChecker.HostServiceApi/ShieldChecker.HostServiceApi.csproj --configuration Release
+          dotnet build src/Api/ShieldChecker.ImportApi/ShieldChecker.ImportApi.csproj --configuration Release
+
+      - name: Build HostService
+        run: dotnet build src/HostService/ShieldChecker.HostService/ShieldChecker.HostService.csproj --configuration Release
+
+      - uses: ncipollo/release-action@v1
+        with:
+          name: "ShieldChecker ${{ inputs.version }}"
+          draft: true
+          generateReleaseNotes: true
+          skipIfReleaseExists: true
 

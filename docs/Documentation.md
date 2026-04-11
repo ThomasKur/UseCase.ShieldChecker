@@ -54,17 +54,18 @@ New to ShieldChecker? Start here:
 
 | Component | Purpose | Documentation |
 |-----------|---------|---------------|
-| **Function App** | Serverless test execution engine | [Deployment Guide](Deployment.md) |
 | **Web Application** | Management interface and reporting | [Reporting Guide](Reporting.md) |
-| **Executor** | Core test validation engine | [Test Execution](RunAndScheduleTests.md) |
+| **Backend API** | Internal API consumed by the web application | [Deployment Guide](Deployment.md) |
+| **HostService API** | External API for host service communication | [Deployment Guide](Deployment.md) |
+| **Import API** | External API for importing shared library tests | [Deployment Guide](Deployment.md) |
+| **Data Access** | Shared EF Core models and database context | [Deployment Guide](Deployment.md) |
+| **Host Service** | Agent running on test machines | [Deployment Guide](Deployment.md) |
 | **Bicep Templates** | Infrastructure as Code deployment | [Deployment Guide](Deployment.md) |
-| **VM DSC** | Virtual machine configuration | [Deployment Guide](Deployment.md) |
-| **Scheduler** | Automated test orchestration | [Scheduling Guide](RunAndScheduleTests.md#automated-test-scheduling) |
 
 
 ## Additional Resources
 
-- **Release Notes:** See [CHANGELOG.md](../CHANGELOG.md) for version history
+- **Release Notes:** See [GitHub Releases](https://github.com/ThomasKur/UseCase.ShieldChecker/releases) for version history
 
 ### External Links
 - **[Project Homepage](https://www.shieldchecker.ch)** - Latest news, updates, and community information

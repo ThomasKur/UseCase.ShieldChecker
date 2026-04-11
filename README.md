@@ -30,44 +30,50 @@ ShieldChecker is a comprehensive open-source security testing platform designed 
 
 The platform consists of several key components:
 
-- **Function App** (`src/FunctionApp/`) - Azure Functions for serverless execution of security tests
 - **Web Application** (`src/Webapp/`) - Frontend interface for managing and viewing security assessments
-- **Executor** (`src/Executor/`) - Core execution engine for running security validations
+- **Backend API** (`src/Api/ShieldChecker.BackendApi/`) - Internal API consumed by the web application
+- **HostService API** (`src/Api/ShieldChecker.HostServiceApi/`) - External API for host service communication
+- **Import API** (`src/Api/ShieldChecker.ImportApi/`) - External API for importing tests from shared libraries
+- **Data Access** (`src/Api/ShieldChecker.DataAccess/`) - Shared Entity Framework Core models and database context
+- **Host Service** (`src/HostService/`) - Agent running on test machines to execute security tests
 - **Bicep Templates** (`src/Bicep/`) - Infrastructure as Code for Azure deployment
-- **VM DSC** (`src/VmDsc/`) - PowerShell Desired State Configuration for virtual machine setup
-- **Scheduler** (`Scheduler/`) - Task scheduling and orchestration components
 
 ## Getting Started
 
-Check the [Deployment page](Deployment.md) for detailed instructions regarding deployment.
+Check the [Deployment Guide](docs/Deployment.md) for detailed instructions regarding deployment.
 
-## Deployment and Custom Build Options (For Code Contributors)
+## Deployment (For Code Contributors)
 
-The project provides several deployment scripts:
+The project provides the following deployment script:
 
 | Script | Purpose |
 |--------|---------|
-| `Invoke-Build.ps1` | Build the solution locally |
-| `Invoke-Deploy.ps1` | Deploy to Azure infrastructure |
-| `Invoke-UpdateWebAppAndSql.ps1` | Update existing web app and database |
+| `Invoke-Deploy.ps1` | All-in-one setup and update script covering app registrations, Bicep infrastructure, SQL setup, Docker build/push, and HostService packaging |
+
+Individual phases can be skipped with `-Skip*` switches (e.g., `-SkipBicep`, `-SkipDockerBuild`) when only a subset of the stack needs to be refreshed.
+
+To import Atomic Red Team tests into the shared library, use the import script:
+
+| Script | Purpose |
+|--------|---------|
+| `src/Import-AtomicRedTeamToSharedLibrary.ps1` | Import Atomic Red Team tests via the Import API |
 
 ## Project Structure
 
 ```
 src/
-├── Bicep/          # Infrastructure as Code templates
-├── Executor/       # Core execution engine
-├── FunctionApp/    # Azure Functions
-├── VmDsc/         # PowerShell DSC configurations
-└── Webapp/        # Web application frontend
-
-Deploy/
-└── Latest/        # Latest deployment artifacts
-
-Scheduler/         # Task scheduling components
-├── ImportTests/   # Test import functionality
-
-SupportiveContent/ # Additional resources and documentation
+├── Api/
+│   ├── ShieldChecker.BackendApi/       # Internal API (WebApp.Access)
+│   ├── ShieldChecker.HostServiceApi/   # External API (HostService.Access)
+│   ├── ShieldChecker.ImportApi/        # External API (Import.SharedLibrary)
+│   └── ShieldChecker.DataAccess/       # Shared EF Core models
+├── Bicep/                              # Infrastructure as Code templates
+├── HostService/                        # Host service agent
+│   ├── ShieldChecker.HostService/
+│   └── ShieldChecker.HostService.Core/
+├── Webapp/                             # Web application frontend
+│   └── ShieldChecker.WebApp/
+└── Import-AtomicRedTeamToSharedLibrary.ps1  # Atomic Red Team import script
 ```
 
 ## Documentation
@@ -75,14 +81,13 @@ SupportiveContent/ # Additional resources and documentation
 - [Homepage](https://www.shieldchecker.ch)
 - [Deployment Guide](docs/Deployment.md) - Detailed deployment instructions
 - [Documentation](docs/Documentation.md) - Comprehensive project documentation
-- [Changelog](CHANGELOG.md) - Version history and updates
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests to ensure functionality by using Invoke-Build and followed by Invoke-Deploy.
+4. Build and verify your changes locally
 5. Submit a pull request
 
 Please see our [issue templates](.github/ISSUE_TEMPLATE/) for bug reports and feature requests.
@@ -90,7 +95,7 @@ Please see our [issue templates](.github/ISSUE_TEMPLATE/) for bug reports and fe
 ## Support
 
 For issues and support:
-- Check existing [GitHub Issues](.github/ISSUE_TEMPLATE/)
+- Check existing [GitHub Issues](https://github.com/ThomasKur/UseCase.ShieldChecker/issues)
 - Review the [Documentation](/docs/Documentation.md)
 - Consult the [Deployment Guide](/docs/Deployment.md)
 
