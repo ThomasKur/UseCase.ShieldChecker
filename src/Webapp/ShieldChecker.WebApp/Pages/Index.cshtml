@@ -1,12 +1,84 @@
 ﻿@page
 @model IndexModel
 @using ShieldChecker.WebApp.Pages.Shared
+@using System.Text.Json
 @{
     ViewData["Title"] = "Home page";
+    var trend = Model.HomepageModel;
 }
 
 <div class="text-center">
     <h1 class="display-4">Shield Checker Dashboard</h1>
+
+    @* ── Trend KPI cards (last 30 days) ───────────────────────────────── *@
+    <div class="row mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-primary text-center p-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1 text-muted">Total Jobs (30d)</h6>
+                    <h2 class="card-title text-primary">@trend.TotalJobsLast30Days</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-success text-center p-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1 text-muted">Detections (30d)</h6>
+                    <h2 class="card-title text-success">@trend.SuccessfulJobsLast30Days</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-danger text-center p-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1 text-muted">Failed/Evaded (30d)</h6>
+                    <h2 class="card-title text-danger">@(trend.FailedJobsLast30Days + trend.EvadedJobsLast30Days)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-info text-center p-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1 text-muted">Detection Rate</h6>
+                    <h2 class="card-title text-info">@trend.DetectionRatePercent %</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Sparkline: daily detection trend ────────────────────────────── *@
+    @if (trend.DailyTrend.Count > 0)
+    {
+        var labels = JsonSerializer.Serialize(trend.DailyTrend.Select(d => d.Date));
+        var successData = JsonSerializer.Serialize(trend.DailyTrend.Select(d => d.Success));
+        var totalData = JsonSerializer.Serialize(trend.DailyTrend.Select(d => d.Total));
+        <div class="card mb-4">
+            <div class="card-header text-start fw-semibold">Detection Trend — Last 30 Days</div>
+            <div class="card-body">
+                <canvas id="trendChart" style="max-height:200px;"></canvas>
+            </div>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@@4/dist/chart.umd.min.js"></script>
+        <script>
+            (function () {
+                const labels = @Html.Raw(labels);
+                const success = @Html.Raw(successData);
+                const total = @Html.Raw(totalData);
+                new Chart(document.getElementById('trendChart'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Detected', data: success, backgroundColor: 'rgba(25,135,84,0.7)' },
+                            { label: 'Total', data: total, type: 'line', borderColor: 'rgba(13,110,253,0.8)', fill: false, tension: 0.3 }
+                        ]
+                    },
+                    options: { responsive: true, scales: { x: { ticks: { maxRotation: 0, autoSkip: true } } } }
+                });
+            })();
+        </script>
+    }
+
     <div class="row">
         <div class="col-sm-6">
             <component type="typeof(CoSystemStatus)" render-mode="ServerPrerendered" />

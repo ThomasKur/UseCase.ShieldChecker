@@ -1,0 +1,170 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image tag / version to deploy (e.g. v1.2.3)'
+        required: true
+        type: string
+      target_environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  id-token: write
+  contents: read
+  deployments: write
+
+# ── Shared variables ──────────────────────────────────────────────────────────
+env:
+  DOTNET_VERSION: '10.0.x'
+  REGISTRY: ${{ vars.CONTAINER_REGISTRY_LOGIN_SERVER }}
+
+jobs:
+  # ── 1. Build & push container images ──────────────────────────────────────
+  build-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push WebApp
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Webapp/ShieldChecker.WebApp
+          push: true
+          tags: ${{ env.REGISTRY }}/shieldchecker-webapp:${{ inputs.version }}
+
+      - name: Build and push BackendApi
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Api/ShieldChecker.BackendApi
+          push: true
+          tags: ${{ env.REGISTRY }}/shieldchecker-backendapi:${{ inputs.version }}
+
+      - name: Build and push HostServiceApi
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Api/ShieldChecker.HostServiceApi
+          push: true
+          tags: ${{ env.REGISTRY }}/shieldchecker-hostserviceapi:${{ inputs.version }}
+
+      - name: Build and push ImportApi
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Api/ShieldChecker.ImportApi
+          push: true
+          tags: ${{ env.REGISTRY }}/shieldchecker-importapi:${{ inputs.version }}
+
+  # ── 2. Deploy to staging ──────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_STAGING }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_STAGING }}
+
+      - name: Run EF Core database migrations (staging)
+        run: |
+          dotnet tool install --global dotnet-ef
+          dotnet ef database update \
+            --project src/Api/ShieldChecker.DataAccess/ShieldChecker.DataAccess.csproj \
+            --startup-project src/Api/ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj \
+            --connection "${{ secrets.SQL_CONNECTION_STRING_STAGING }}"
+
+      - name: Deploy Bicep (staging)
+        id: deploy
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID_STAGING }}
+          resourceGroupName: ${{ vars.RESOURCE_GROUP_STAGING }}
+          template: src/Bicep/step1/resource.web.bicep
+          parameters: >
+            deployEnvironment=dev
+            appName=${{ vars.APP_NAME }}
+            webAppImageTag=${{ inputs.version }}
+            backendApiImageTag=${{ inputs.version }}
+            hostServiceApiImageTag=${{ inputs.version }}
+            importApiImageTag=${{ inputs.version }}
+            containerRegistryLoginServer=${{ env.REGISTRY }}
+            location=${{ vars.AZURE_LOCATION }}
+
+  # ── 3. Approval gate before production ────────────────────────────────────
+  deploy-production:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: inputs.target_environment == 'production'
+    environment:
+      name: production
+      url: ${{ steps.deploy-prod.outputs.webapp-url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Azure login (production)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_PRODUCTION }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_PRODUCTION }}
+
+      - name: Run EF Core database migrations (production)
+        run: |
+          dotnet tool install --global dotnet-ef
+          dotnet ef database update \
+            --project src/Api/ShieldChecker.DataAccess/ShieldChecker.DataAccess.csproj \
+            --startup-project src/Api/ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj \
+            --connection "${{ secrets.SQL_CONNECTION_STRING_PRODUCTION }}"
+
+      - name: Deploy Bicep (production)
+        id: deploy-prod
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID_PRODUCTION }}
+          resourceGroupName: ${{ vars.RESOURCE_GROUP_PRODUCTION }}
+          template: src/Bicep/step1/resource.web.bicep
+          parameters: >
+            deployEnvironment=prd
+            appName=${{ vars.APP_NAME }}
+            webAppImageTag=${{ inputs.version }}
+            backendApiImageTag=${{ inputs.version }}
+            hostServiceApiImageTag=${{ inputs.version }}
+            importApiImageTag=${{ inputs.version }}
+            containerRegistryLoginServer=${{ env.REGISTRY }}
+            location=${{ vars.AZURE_LOCATION }}

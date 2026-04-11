@@ -22,19 +22,70 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/
 
       - name: Build WebApp
-        run: dotnet build src/Webapp/ShieldChecker.WebApp/ShieldChecker.WebApp.csproj --configuration Release
+        run: dotnet build src/Webapp/ShieldChecker.WebApp/ShieldChecker.WebApp.csproj --configuration Release --no-restore
 
       - name: Build APIs
         run: |
-          dotnet build src/Api/ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj --configuration Release
-          dotnet build src/Api/ShieldChecker.HostServiceApi/ShieldChecker.HostServiceApi.csproj --configuration Release
-          dotnet build src/Api/ShieldChecker.ImportApi/ShieldChecker.ImportApi.csproj --configuration Release
+          dotnet build src/Api/ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj --configuration Release --no-restore
+          dotnet build src/Api/ShieldChecker.HostServiceApi/ShieldChecker.HostServiceApi.csproj --configuration Release --no-restore
+          dotnet build src/Api/ShieldChecker.ImportApi/ShieldChecker.ImportApi.csproj --configuration Release --no-restore
 
       - name: Build HostService
-        run: dotnet build src/HostService/ShieldChecker.HostService/ShieldChecker.HostService.csproj --configuration Release
+        run: dotnet build src/HostService/ShieldChecker.HostService/ShieldChecker.HostService.csproj --configuration Release --no-restore
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run tests with coverage
+        run: |
+          dotnet test tests/ShieldChecker.BackendApi.Tests/ShieldChecker.BackendApi.Tests.csproj \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger "trx;LogFileName=backendapi.trx"
+          dotnet test tests/ShieldChecker.HostService.Core.Tests/ShieldChecker.HostService.Core.Tests.csproj \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger "trx;LogFileName=hostservice.trx"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./coverage/**/*.trx
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: ./coverage/**/coverage.cobertura.xml
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@main
 
       - uses: ncipollo/release-action@v1
         with:

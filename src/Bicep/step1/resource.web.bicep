@@ -118,6 +118,28 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'BACKEND_API_BASE_URL', value: 'https://${backendApiApp.properties.configuration.ingress.fqdn}' }
             { name: 'BACKEND_API_CLIENT_ID', value: backendApiAppClientId }
           ]
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/healthz'
+                port: 8080
+              }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/healthz'
+                port: 8080
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              failureThreshold: 3
+            }
+          ]
         }
       ]
       scale: {
@@ -186,6 +208,28 @@ resource backendApiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AzureAd__ClientId', value: backendApiAppClientId }
             { name: 'AzureAd__Audience', value: 'api://${backendApiAppClientId}' }
           ]
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/healthz'
+                port: 8080
+              }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/readyz'
+                port: 8080
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              failureThreshold: 3
+            }
+          ]
         }
       ]
       scale: {
@@ -244,6 +288,28 @@ resource hostServiceApiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AzureAd__TenantId', value: tenant().tenantId }
             { name: 'AzureAd__ClientId', value: hostServiceApiAppClientId }
             { name: 'AzureAd__Audience', value: 'api://${hostServiceApiAppClientId}' }
+          ]
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/healthz'
+                port: 8080
+              }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/readyz'
+                port: 8080
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              failureThreshold: 3
+            }
           ]
         }
       ]
@@ -304,6 +370,28 @@ resource importApiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AzureAd__TenantId', value: tenant().tenantId }
             { name: 'AzureAd__ClientId', value: importApiAppClientId }
             { name: 'AzureAd__Audience', value: 'api://${importApiAppClientId}' }
+          ]
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/healthz'
+                port: 8080
+              }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/readyz'
+                port: 8080
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              failureThreshold: 3
+            }
           ]
         }
       ]
