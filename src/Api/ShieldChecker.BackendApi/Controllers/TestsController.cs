@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Identity.Web.Resource;
+using ShieldChecker.BackendApi.Services;
 using ShieldChecker.DataAccess;
 using ShieldChecker.DataAccess.Models;
 
@@ -20,11 +22,16 @@ namespace ShieldChecker.BackendApi.Controllers
     {
         private readonly ShieldCheckerContext _context;
         private readonly ILogger<TestsController> _logger;
+        private readonly IMemoryCache _cache;
+        private readonly AuditService _audit;
+        private static readonly string AllTestsCacheKey = "tests:all";
 
-        public TestsController(ShieldCheckerContext context, ILogger<TestsController> logger)
+        public TestsController(ShieldCheckerContext context, ILogger<TestsController> logger, IMemoryCache cache, AuditService audit)
         {
             _context = context;
             _logger = logger;
+            _cache = cache;
+            _audit = audit;
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
@@ -54,17 +61,26 @@ namespace ShieldChecker.BackendApi.Controllers
             return user;
         }
 
+        private (string? oid, string? name, string? upn) GetCallerHeaders() =>
+            (Request.Headers["X-User-Oid"].FirstOrDefault(),
+             Request.Headers["X-User-Name"].FirstOrDefault(),
+             Request.Headers["X-User-Upn"].FirstOrDefault());
+
         // ── Endpoints ────────────────────────────────────────────────────────
 
         [HttpGet]
         public async Task<IActionResult> GetAll(CancellationToken ct)
         {
-            var tests = await _context.UseCaseTests
-                .Include(t => t.CreatedBy)
-                .Include(t => t.ModifiedBy)
-                .AsNoTracking()
-                .OrderByDescending(t => t.Created)
-                .ToListAsync(ct);
+            if (!_cache.TryGetValue(AllTestsCacheKey, out List<TestDefinition>? tests))
+            {
+                tests = await _context.UseCaseTests
+                    .Include(t => t.CreatedBy)
+                    .Include(t => t.ModifiedBy)
+                    .AsNoTracking()
+                    .OrderByDescending(t => t.Created)
+                    .ToListAsync(ct);
+                _cache.Set(AllTestsCacheKey, tests, TimeSpan.FromMinutes(2));
+            }
             return Ok(tests);
         }
 
@@ -107,6 +123,9 @@ namespace ShieldChecker.BackendApi.Controllers
             };
             _context.UseCaseTests.Add(entry);
             await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllTestsCacheKey);
+            var (oid, name, upn) = GetCallerHeaders();
+            await _audit.LogAsync("TestDefinition", entry.ID, "Create", oid, name, upn, entry.Name, ct);
             return CreatedAtAction(nameof(GetById), new { id = entry.ID }, entry);
         }
 
@@ -129,6 +148,9 @@ namespace ShieldChecker.BackendApi.Controllers
                 if (!_context.UseCaseTests.Any(t => t.ID == id)) return NotFound();
                 throw;
             }
+            _cache.Remove(AllTestsCacheKey);
+            var (oid, name, upn) = GetCallerHeaders();
+            await _audit.LogAsync("TestDefinition", id, "Update", oid, name, upn, test.Name, ct);
             return NoContent();
         }
 
@@ -139,6 +161,8 @@ namespace ShieldChecker.BackendApi.Controllers
             if (test == null) return NotFound();
             _context.UseCaseTests.Remove(test);
             await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllTestsCacheKey);
+            await _audit.LogAsync("TestDefinition", id, "Delete", Request.Headers["X-User-Oid"].FirstOrDefault(), Request.Headers["X-User-Name"].FirstOrDefault(), Request.Headers["X-User-Upn"].FirstOrDefault(), test.Name, ct);
             return NoContent();
         }
 
@@ -153,6 +177,29 @@ namespace ShieldChecker.BackendApi.Controllers
                 .ToListAsync(ct);
             return Ok(history);
         }
+
+        /// <summary>
+        /// Bulk-queue jobs for a list of test IDs. Creates one queued job per test.
+        /// </summary>
+        [HttpPost("bulk-queue")]
+        public async Task<IActionResult> BulkQueue([FromBody] BulkTestQueueRequest req, CancellationToken ct)
+        {
+            if (req.Ids == null || req.Ids.Count == 0) return BadRequest("No test IDs provided.");
+            var tests = await _context.UseCaseTests
+                .Where(t => req.Ids.Contains(t.ID) && t.Enabled == true)
+                .ToListAsync(ct);
+            var newJobs = tests.Select(t => new TestJob
+            {
+                UseCaseID = t.ID,
+                Created = DateTime.UtcNow,
+                Modified = DateTime.UtcNow,
+                Status = JobStatus.Queued,
+                Result = JobResult.Undetermined
+            }).ToList();
+            _context.TestJobs.AddRange(newJobs);
+            await _context.SaveChangesAsync(ct);
+            return Ok(new { queued = newJobs.Count, ids = newJobs.Select(j => j.ID) });
+        }
     }
 
     public sealed class TestDefinitionCreateRequest
@@ -160,5 +207,10 @@ namespace ShieldChecker.BackendApi.Controllers
         public required string Name { get; set; }
         public string? MitreTechnique { get; set; }
         public string? Description { get; set; }
+    }
+
+    public sealed class BulkTestQueueRequest
+    {
+        public List<int> Ids { get; set; } = new();
     }
 }

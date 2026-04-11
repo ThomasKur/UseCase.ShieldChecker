@@ -19,6 +19,7 @@ namespace ShieldChecker.DataAccess
         public DbSet<AutoSchedule> AutoSchedule { get; set; }
         public DbSet<SharedTestDefinition> SharedTestLibrary { get; set; }
         public DbSet<SharedTestConsumption> SharedTestConsumptions { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,6 +77,8 @@ namespace ShieldChecker.DataAccess
                 .WithMany()
                 .HasForeignKey(e => e.SharedLibrarySourceId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>().ToTable("AuditLog");
         }
     }
 }

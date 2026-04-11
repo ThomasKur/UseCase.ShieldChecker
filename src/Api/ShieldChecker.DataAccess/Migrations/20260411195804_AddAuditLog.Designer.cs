@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShieldChecker.DataAccess;
 
@@ -11,9 +12,11 @@ using ShieldChecker.DataAccess;
 namespace ShieldChecker.DataAccess.Migrations
 {
     [DbContext(typeof(ShieldCheckerContext))]
-    partial class ShieldCheckerContextModelSnapshot : ModelSnapshot
+    [Migration("20260411195804_AddAuditLog")]
+    partial class AddAuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

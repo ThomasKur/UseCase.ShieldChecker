@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
+using Polly;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -10,10 +12,11 @@ namespace ShieldChecker.HostService.Core
     /// <summary>
     /// Core engine that polls the ShieldChecker API for jobs and executes them.
     /// Authenticates with the API using the OAuth 2.0 client credentials flow.
+    /// Uses resilience pipelines to retry transient HTTP failures.
     /// </summary>
     public class HostEngine
     {
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly HttpClient _httpClient;
         private readonly ILogger _logger;
         private readonly string _workerName;
         private readonly string _shieldCheckerApiHostname;
@@ -32,6 +35,38 @@ namespace ShieldChecker.HostService.Core
             _shieldCheckerApiScope = shieldCheckerApiScope;
             _tokenService = tokenService;
             _logger = logger;
+
+            // Build an HttpClient with a standard resilience pipeline (retry + circuit breaker)
+            var handler = new ResilienceHandler(
+                new ResiliencePipelineBuilder<HttpResponseMessage>()
+                    .AddRetry(new HttpRetryStrategyOptions
+                    {
+                        MaxRetryAttempts = 3,
+                        Delay = TimeSpan.FromSeconds(2),
+                        BackoffType = DelayBackoffType.Exponential,
+                        UseJitter = true,
+                        ShouldHandle = args =>
+                            ValueTask.FromResult(
+                                args.Outcome.Exception != null ||
+                                (args.Outcome.Result != null && IsTransientHttpStatus(args.Outcome.Result.StatusCode)))
+                    })
+                    .AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+                    {
+                        SamplingDuration = TimeSpan.FromSeconds(30),
+                        MinimumThroughput = 5,
+                        FailureRatio = 0.5,
+                        BreakDuration = TimeSpan.FromSeconds(15)
+                    })
+                    .Build());
+
+            _httpClient = new HttpClient(handler);
+        }
+
+        private static bool IsTransientHttpStatus(System.Net.HttpStatusCode code)
+        {
+            return code == System.Net.HttpStatusCode.RequestTimeout
+                || code == System.Net.HttpStatusCode.TooManyRequests
+                || (int)code >= 500;
         }
 
         private async Task<string> GetBearerTokenAsync(CancellationToken ct = default)
@@ -39,8 +74,7 @@ namespace ShieldChecker.HostService.Core
             return await _tokenService.AcquireTokenAsync(_shieldCheckerApiScope, ct);
         }
 
-        /// <summary>
-        /// Fetches the next pending job from the ShieldChecker API.
+
         /// Returns null if no job is available or if the domain controller is not yet ready.
         /// </summary>
         public async Task<TestDefinition?> GetJobDetailsAsync(CancellationToken ct = default)

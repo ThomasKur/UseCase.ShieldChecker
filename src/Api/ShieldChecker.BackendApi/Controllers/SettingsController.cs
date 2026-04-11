@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web.Resource;
+using ShieldChecker.BackendApi.Services;
 using ShieldChecker.DataAccess;
 
 namespace ShieldChecker.BackendApi.Controllers
@@ -17,10 +18,12 @@ namespace ShieldChecker.BackendApi.Controllers
     public class SettingsController : ControllerBase
     {
         private readonly ShieldCheckerContext _context;
+        private readonly AuditService _audit;
 
-        public SettingsController(ShieldCheckerContext context)
+        public SettingsController(ShieldCheckerContext context, AuditService audit)
         {
             _context = context;
+            _audit = audit;
         }
 
         [HttpGet]
@@ -41,6 +44,7 @@ namespace ShieldChecker.BackendApi.Controllers
                 if (!_context.Settings.Any(s => s.ID == settings.ID)) return NotFound();
                 throw;
             }
+            await _audit.LogAsync("Settings", settings.ID, "Update", Request.Headers["X-User-Oid"].FirstOrDefault(), Request.Headers["X-User-Name"].FirstOrDefault(), Request.Headers["X-User-Upn"].FirstOrDefault(), null, ct);
             return Ok(settings);
         }
 

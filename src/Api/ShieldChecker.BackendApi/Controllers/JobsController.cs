@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Identity.Web.Resource;
+using ShieldChecker.BackendApi.Services;
 using ShieldChecker.DataAccess;
 using ShieldChecker.DataAccess.Models;
 
@@ -18,20 +20,29 @@ namespace ShieldChecker.BackendApi.Controllers
     public class JobsController : ControllerBase
     {
         private readonly ShieldCheckerContext _context;
+        private readonly IMemoryCache _cache;
+        private readonly AuditService _audit;
+        private static readonly string AllJobsCacheKey = "jobs:all";
 
-        public JobsController(ShieldCheckerContext context)
+        public JobsController(ShieldCheckerContext context, IMemoryCache cache, AuditService audit)
         {
             _context = context;
+            _cache = cache;
+            _audit = audit;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll(CancellationToken ct)
         {
-            var jobs = await _context.TestJobs
-                .Include(j => j.UseCase)
-                .AsNoTracking()
-                .OrderByDescending(j => j.Created)
-                .ToListAsync(ct);
+            if (!_cache.TryGetValue(AllJobsCacheKey, out List<TestJob>? jobs))
+            {
+                jobs = await _context.TestJobs
+                    .Include(j => j.UseCase)
+                    .AsNoTracking()
+                    .OrderByDescending(j => j.Created)
+                    .ToListAsync(ct);
+                _cache.Set(AllJobsCacheKey, jobs, TimeSpan.FromSeconds(30));
+            }
             return Ok(jobs);
         }
 
@@ -53,6 +64,8 @@ namespace ShieldChecker.BackendApi.Controllers
             job.Status = JobStatus.Canceled;
             job.Modified = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllJobsCacheKey);
+            await _audit.LogAsync("TestJob", id, "Cancel", Request.Headers["X-User-Oid"].FirstOrDefault(), Request.Headers["X-User-Name"].FirstOrDefault(), Request.Headers["X-User-Upn"].FirstOrDefault(), null, ct);
             return Ok();
         }
 
@@ -74,6 +87,7 @@ namespace ShieldChecker.BackendApi.Controllers
             };
             _context.TestJobs.Add(newJob);
             await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllJobsCacheKey);
             return Ok(new { newJob.ID });
         }
 
@@ -87,7 +101,52 @@ namespace ShieldChecker.BackendApi.Controllers
             job.Status = JobStatus.ReviewDone;
             job.Modified = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllJobsCacheKey);
             return Ok();
+        }
+
+        /// <summary>
+        /// Bulk-cancel jobs. Accepts a list of job IDs and cancels all that are still queued.
+        /// </summary>
+        [HttpPost("bulk-cancel")]
+        public async Task<IActionResult> BulkCancel([FromBody] BulkJobRequest req, CancellationToken ct)
+        {
+            if (req.Ids == null || req.Ids.Count == 0) return BadRequest("No job IDs provided.");
+            var jobs = await _context.TestJobs
+                .Where(j => req.Ids.Contains(j.ID) && j.Status == JobStatus.Queued)
+                .ToListAsync(ct);
+            foreach (var job in jobs)
+            {
+                job.Status = JobStatus.Canceled;
+                job.Modified = DateTime.UtcNow;
+            }
+            await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllJobsCacheKey);
+            return Ok(new { canceled = jobs.Count });
+        }
+
+        /// <summary>
+        /// Bulk-rerun jobs. Creates new queued jobs for each supplied job ID.
+        /// </summary>
+        [HttpPost("bulk-rerun")]
+        public async Task<IActionResult> BulkRerun([FromBody] BulkJobRequest req, CancellationToken ct)
+        {
+            if (req.Ids == null || req.Ids.Count == 0) return BadRequest("No job IDs provided.");
+            var originals = await _context.TestJobs
+                .Where(j => req.Ids.Contains(j.ID))
+                .ToListAsync(ct);
+            var newJobs = originals.Select(o => new TestJob
+            {
+                UseCaseID = o.UseCaseID,
+                Created = DateTime.UtcNow,
+                Modified = DateTime.UtcNow,
+                Status = JobStatus.Queued,
+                Result = JobResult.Undetermined
+            }).ToList();
+            _context.TestJobs.AddRange(newJobs);
+            await _context.SaveChangesAsync(ct);
+            _cache.Remove(AllJobsCacheKey);
+            return Ok(new { queued = newJobs.Count, ids = newJobs.Select(j => j.ID) });
         }
     }
 
@@ -95,5 +154,10 @@ namespace ShieldChecker.BackendApi.Controllers
     {
         public string? ReviewResult { get; set; }
         public JobResult Result { get; set; }
+    }
+
+    public sealed class BulkJobRequest
+    {
+        public List<int> Ids { get; set; } = new();
     }
 }
