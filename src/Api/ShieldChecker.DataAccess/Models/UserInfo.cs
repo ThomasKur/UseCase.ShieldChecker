@@ -1,8 +1,6 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using System.Security.Claims;
 
-namespace ShieldChecker.WebApp.Models.Db
+namespace ShieldChecker.DataAccess.Models
 {
     public class UserInfo
     {

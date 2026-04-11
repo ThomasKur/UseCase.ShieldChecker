@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ShieldChecker.BackendApi/ShieldChecker.BackendApi.csproj" />
+  <Project Path="ShieldChecker.DataAccess/ShieldChecker.DataAccess.csproj" />
+  <Project Path="ShieldChecker.HostServiceApi/ShieldChecker.HostServiceApi.csproj" />
+  <Project Path="ShieldChecker.ImportApi/ShieldChecker.ImportApi.csproj" />
+</Solution>

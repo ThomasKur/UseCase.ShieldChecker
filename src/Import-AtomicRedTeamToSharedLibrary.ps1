@@ -1,17 +1,33 @@
 <#
 .SYNOPSIS
-    Imports Atomic Red Team tests into the ShieldChecker Shared Test Library.
+    Imports Atomic Red Team tests into the ShieldChecker Shared Test Library via the Import API.
 
 .DESCRIPTION
     Downloads or reads a local copy of the Atomic Red Team YAML repository and
-    inserts each test as an Approved SharedTestDefinition in the ShieldChecker
-    database.  Existing entries are matched by ExternalId (the ART GUID) and
+    POSTs each test as an Approved SharedTestDefinition to the ShieldChecker Import API.
+    Existing entries are matched by ExternalId (the ART GUID) and
     skipped unless -Update is specified.
 
-.PARAMETER ConnectionString
-    Azure SQL connection string for the ShieldChecker database.
-    Example: "Server=tcp:myserver.database.windows.net;Database=shieldchecker;
-              Authentication=Active Directory Default;"
+    Authentication uses the OAuth 2.0 client-credentials flow against the
+    ShieldChecker-ImportApi app registration.  No SQL connection is required.
+
+.PARAMETER ImportApiBaseUrl
+    Base URL of the ShieldChecker Import API container.
+    Example: "https://ca-shieldchecker-importapi-prd-001.blueocean.azurecontainerapps.io"
+
+.PARAMETER TenantId
+    Azure AD tenant ID.
+
+.PARAMETER ClientId
+    Client ID of the operator's dedicated app registration that holds the
+    Import.SharedLibrary AppRole on ShieldChecker-ImportApi.
+
+.PARAMETER ClientSecret
+    Client secret for the app registration.
+
+.PARAMETER ImportApiClientId
+    Client ID of the ShieldChecker-ImportApi app registration.
+    Used to build the OAuth2 scope: api://{ImportApiClientId}/.default
 
 .PARAMETER AtomicRedTeamPath
     Path to a local checkout of the Atomic Red Team repository.
@@ -27,27 +43,46 @@
     field values from the YAML source.
 
 .PARAMETER WhatIf
-    Runs in dry-run mode; no database writes are performed.
+    Runs in dry-run mode; no API writes are performed.
 
 .EXAMPLE
     # Import from GitHub, create new entries only
-    .\Import-AtomicRedTeamToSharedLibrary.ps1 -ConnectionString "..." -DownloadFromGitHub
+    .\Import-AtomicRedTeamToSharedLibrary.ps1 `
+        -ImportApiBaseUrl "https://ca-shieldchecker-importapi-prd-001.example.azurecontainerapps.io" `
+        -TenantId "00000000-0000-0000-0000-000000000000" `
+        -ClientId "11111111-0000-0000-0000-000000000000" `
+        -ClientSecret "..." `
+        -ImportApiClientId "22222222-0000-0000-0000-000000000000" `
+        -DownloadFromGitHub
 
 .EXAMPLE
     # Import from local checkout and update existing entries
     .\Import-AtomicRedTeamToSharedLibrary.ps1 `
-        -ConnectionString "..." `
+        -ImportApiBaseUrl "https://..." `
+        -TenantId "..." -ClientId "..." -ClientSecret "..." `
+        -ImportApiClientId "..." `
         -AtomicRedTeamPath "C:\atomics" `
         -Update
 
 .NOTES
-    Requires: SqlServer PowerShell module  (Install-Module SqlServer)
-              powershell-yaml module        (Install-Module powershell-yaml)
+    Requires: powershell-yaml module  (Install-Module powershell-yaml)
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
-    [string]$ConnectionString,
+    [string]$ImportApiBaseUrl,
+
+    [Parameter(Mandatory)]
+    [string]$TenantId,
+
+    [Parameter(Mandatory)]
+    [string]$ClientId,
+
+    [Parameter(Mandatory)]
+    [string]$ClientSecret,
+
+    [Parameter(Mandatory)]
+    [string]$ImportApiClientId,
 
     [Parameter(ParameterSetName = 'Local')]
     [string]$AtomicRedTeamPath,
@@ -58,10 +93,32 @@ param(
     [switch]$Update
 )
 
-#Requires -Modules SqlServer, powershell-yaml
+#Requires -Modules powershell-yaml
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# Acquire OAuth 2.0 client-credentials token
+# ---------------------------------------------------------------------------
+function Get-AccessToken {
+    param([string]$TenantId, [string]$ClientId, [string]$ClientSecret, [string]$Scope)
+
+    $tokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+    $body = @{
+        grant_type    = 'client_credentials'
+        client_id     = $ClientId
+        client_secret = $ClientSecret
+        scope         = $Scope
+    }
+    $response = Invoke-RestMethod -Method Post -Uri $tokenUrl -Body $body -ContentType 'application/x-www-form-urlencoded'
+    return $response.access_token
+}
+
+$scope = "api://$ImportApiClientId/.default"
+Write-Host "Acquiring access token for scope: $scope"
+$accessToken = Get-AccessToken -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret -Scope $scope
+Write-Host "Token acquired successfully."
 
 # ---------------------------------------------------------------------------
 # Helper: map ART executor name → ShieldChecker ExecutorSystemType int value
@@ -119,13 +176,10 @@ if ($PSCmdlet.ParameterSetName -eq 'Local' -and $AtomicRedTeamPath) {
 Write-Host "Found $($yamlFiles.Count) YAML file(s) to process."
 
 # ---------------------------------------------------------------------------
-# Statistics
+# Build the batch payload
 # ---------------------------------------------------------------------------
-$stats = @{ Parsed = 0; Inserted = 0; Updated = 0; Skipped = 0; Errors = 0 }
+$tests = [System.Collections.Generic.List[hashtable]]::new()
 
-# ---------------------------------------------------------------------------
-# Process each YAML file
-# ---------------------------------------------------------------------------
 foreach ($file in $yamlFiles) {
     try {
         $raw  = Get-Content $file.FullName -Raw
@@ -134,8 +188,6 @@ foreach ($file in $yamlFiles) {
         $mitreTechnique = $data.'attack_technique' ?? ''
 
         foreach ($atomicTest in $data.'atomic_tests') {
-            $stats.Parsed++
-
             $guid        = $atomicTest.'auto_generated_guid' ?? [guid]::NewGuid().ToString()
             $name        = $atomicTest.'name'                ?? 'Unnamed'
             $description = $atomicTest.'description'         ?? ''
@@ -146,88 +198,62 @@ foreach ($file in $yamlFiles) {
             $osType    = ConvertTo-OperatingSystem $platforms
             $scriptTest = ($executor.'command' ?? '') -replace '\r?\n', "`n"
 
-            # Truncate name and mitre to column limits
+            # Truncate to column limits
             if ($name.Length -gt 150)           { $name           = $name.Substring(0, 150) }
             if ($mitreTechnique.Length -gt 16)  { $mitreTechnique = $mitreTechnique.Substring(0, 16) }
 
-            # Check for existing entry
-            $checkQuery = "SELECT ID, Status FROM SharedTestDefinition WHERE ExternalId = @ExternalId"
-            $existingRow = Invoke-Sqlcmd -ConnectionString $ConnectionString `
-                                          -Query $checkQuery `
-                                          -Variable @("ExternalId=$guid") `
-                                          -ErrorAction Stop
-
-            if ($existingRow) {
-                if (-not $Update) {
-                    $stats.Skipped++
-                    continue
-                }
-                # Update existing
-                $updateQuery = @"
-UPDATE SharedTestDefinition
-SET    Name               = @Name,
-       MitreTechnique     = @MitreTechnique,
-       Description        = @Description,
-       ScriptTest         = @ScriptTest,
-       ScriptPrerequisites= '',
-       ScriptCleanup      = '',
-       OperatingSystem    = @OperatingSystem,
-       ExecutorSystemType = @ExecutorSystemType,
-       ExecutorUserType   = 0,
-       ElevationRequired  = 0
-WHERE  ExternalId = @ExternalId
-"@
-                if ($PSCmdlet.ShouldProcess($name, 'Update SharedTestDefinition')) {
-                    Invoke-Sqlcmd -ConnectionString $ConnectionString `
-                                  -Query $updateQuery `
-                                  -Variable @(
-                                      "Name=$name",
-                                      "MitreTechnique=$mitreTechnique",
-                                      "Description=$description",
-                                      "ScriptTest=$scriptTest",
-                                      "OperatingSystem=$osType",
-                                      "ExecutorSystemType=$execType",
-                                      "ExternalId=$guid"
-                                  ) -ErrorAction Stop
-                    $stats.Updated++
-                }
-            } else {
-                # Insert new entry as Approved
-                $insertQuery = @"
-INSERT INTO SharedTestDefinition
-    (Name, MitreTechnique, Description, ExpectedAlertTitle,
-     ScriptTest, ScriptPrerequisites, ScriptCleanup,
-     ElevationRequired, OperatingSystem, ExecutorSystemType,
-     ExecutorUserType, ExternalId, Status,
-     SubmittedById, SubmittedAt)
-SELECT TOP 1
-    @Name, @MitreTechnique, @Description, 'Unknown',
-    @ScriptTest, '', '',
-    0, @OperatingSystem, @ExecutorSystemType,
-    0, @ExternalId, 1,
-    Id, GETUTCDATE()
-FROM   UserInfo
-ORDER BY Id
-"@
-                if ($PSCmdlet.ShouldProcess($name, 'Insert SharedTestDefinition')) {
-                    Invoke-Sqlcmd -ConnectionString $ConnectionString `
-                                  -Query $insertQuery `
-                                  -Variable @(
-                                      "Name=$name",
-                                      "MitreTechnique=$mitreTechnique",
-                                      "Description=$description",
-                                      "ScriptTest=$scriptTest",
-                                      "OperatingSystem=$osType",
-                                      "ExecutorSystemType=$execType",
-                                      "ExternalId=$guid"
-                                  ) -ErrorAction Stop
-                    $stats.Inserted++
-                }
-            }
+            $tests.Add(@{
+                externalId        = $guid
+                name              = $name
+                mitreTechnique    = $mitreTechnique
+                description       = $description
+                scriptTest        = $scriptTest
+                operatingSystem   = $osType
+                executorSystemType = $execType
+            })
         }
     } catch {
-        Write-Warning "Error processing $($file.Name): $_"
-        $stats.Errors++
+        Write-Warning "Error parsing $($file.Name): $_"
+    }
+}
+
+Write-Host "Parsed $($tests.Count) test(s) from YAML files."
+
+# ---------------------------------------------------------------------------
+# POST to Import API  (batch in chunks of 200 to stay within request limits)
+# ---------------------------------------------------------------------------
+$batchSize   = 200
+$totalTests  = $tests.Count
+$batchCount  = [math]::Ceiling($totalTests / $batchSize)
+$grandStats  = @{ Inserted = 0; Updated = 0; Skipped = 0; Errors = 0 }
+
+$headers = @{
+    'Authorization' = "Bearer $accessToken"
+    'Content-Type'  = 'application/json'
+}
+
+$importUrl = "$($ImportApiBaseUrl.TrimEnd('/'))/api/sharedlibrary/import"
+
+for ($i = 0; $i -lt $batchCount; $i++) {
+    $batchTests = $tests | Select-Object -Skip ($i * $batchSize) -First $batchSize
+
+    $payload = @{
+        update = $Update.IsPresent
+        tests  = @($batchTests)
+    } | ConvertTo-Json -Depth 10
+
+    if ($PSCmdlet.ShouldProcess("Batch $($i+1)/$batchCount ($($batchTests.Count) tests)", 'POST to Import API')) {
+        try {
+            $response = Invoke-RestMethod -Method Post -Uri $importUrl -Headers $headers -Body $payload -ErrorAction Stop
+            $grandStats.Inserted += $response.inserted
+            $grandStats.Updated  += $response.updated
+            $grandStats.Skipped  += $response.skipped
+            $grandStats.Errors   += $response.errors
+            Write-Host "Batch $($i+1)/$batchCount: Inserted=$($response.inserted) Updated=$($response.updated) Skipped=$($response.skipped) Errors=$($response.errors)"
+        } catch {
+            Write-Warning "Batch $($i+1)/$batchCount failed: $_"
+            $grandStats.Errors += $batchTests.Count
+        }
     }
 }
 
@@ -236,8 +262,8 @@ ORDER BY Id
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "=== Import Summary ==="
-Write-Host "  Parsed  : $($stats.Parsed)"
-Write-Host "  Inserted: $($stats.Inserted)"
-Write-Host "  Updated : $($stats.Updated)"
-Write-Host "  Skipped : $($stats.Skipped)"
-Write-Host "  Errors  : $($stats.Errors)"
+Write-Host "  Inserted: $($grandStats.Inserted)"
+Write-Host "  Updated : $($grandStats.Updated)"
+Write-Host "  Skipped : $($grandStats.Skipped)"
+Write-Host "  Errors  : $($grandStats.Errors)"
+

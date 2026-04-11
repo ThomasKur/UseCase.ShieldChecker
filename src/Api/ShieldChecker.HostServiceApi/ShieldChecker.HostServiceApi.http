@@ -1,0 +1,6 @@
+@ShieldChecker.HostServiceApi_HostAddress = http://localhost:5095
+
+GET {{ShieldChecker.HostServiceApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
