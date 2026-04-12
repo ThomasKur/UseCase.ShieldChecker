@@ -75,6 +75,88 @@ namespace ShieldChecker.HostService.Core
         }
 
 
+        /// <summary>
+        /// Fetches the Hyper-V VM configuration settings from the API.
+        /// Returns null when settings cannot be retrieved.
+        /// </summary>
+        public async Task<VmSettings?> GetVmSettingsAsync(CancellationToken ct = default)
+        {
+            string requestUrl = $"https://{_shieldCheckerApiHostname}/api/Settings";
+            _logger.LogTrace("Fetching VM settings from URL: {Url}", requestUrl);
+
+            string token = await GetBearerTokenAsync(ct);
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.SendAsync(request, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("VM settings not found on server.");
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+            string json = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogInformation("VM settings fetched successfully.");
+            return JsonSerializer.Deserialize<VmSettings>(json);
+        }
+
+        /// <summary>
+        /// Creates a Hyper-V VM, executes the job scripts inside it via PowerShell Direct,
+        /// then removes the VM regardless of success or failure.
+        /// </summary>
+        /// <param name="jobDefinition">Job to execute.</param>
+        /// <param name="settings">Hyper-V VM settings (CPU, RAM, image paths, storage path).</param>
+        /// <param name="adminUsername">Guest local administrator username for PowerShell Direct.</param>
+        /// <param name="adminPassword">Guest local administrator password for PowerShell Direct.</param>
+        public void ExecuteJobInVm(
+            TestDefinition jobDefinition,
+            VmSettings settings,
+            string adminUsername,
+            string adminPassword)
+        {
+            if (jobDefinition == null)
+                throw new ArgumentNullException(nameof(jobDefinition));
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+
+            string vmName = $"sc-worker-{_workerName}-{Guid.NewGuid():N}";
+            string imagePath = settings.GetImagePathForOs(jobDefinition.OperatingSystem);
+            var hyperV = new HyperVManager(_logger);
+
+            _logger.LogInformation("Starting VM-based execution of job '{Name}' in VM '{VmName}'.",
+                jobDefinition.Name, vmName);
+
+            try
+            {
+                hyperV.CreateVm(vmName, imagePath, settings.WorkerVMCpuCount, settings.WorkerVMMemoryMB, settings.VMStoragePath);
+                hyperV.StartVmAndWait(vmName);
+
+                _logger.LogInformation("Executing prerequisites script in VM '{VmName}'.", vmName);
+                hyperV.RunScriptInVm(vmName, jobDefinition.ScriptPrerequisites, adminUsername, adminPassword);
+
+                _logger.LogInformation("Executing test script in VM '{VmName}'.", vmName);
+                hyperV.RunScriptInVm(vmName, jobDefinition.ScriptTest, adminUsername, adminPassword);
+
+                _logger.LogInformation("Executing cleanup script in VM '{VmName}'.", vmName);
+                hyperV.RunScriptInVm(vmName, jobDefinition.ScriptCleanup, adminUsername, adminPassword);
+
+                _logger.LogInformation("VM-based job execution completed for VM '{VmName}'.", vmName);
+            }
+            finally
+            {
+                try
+                {
+                    hyperV.RemoveVm(vmName, settings.VMStoragePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to remove VM '{VmName}' after job execution.", vmName);
+                }
+            }
+        }
+
         /// Returns null if no job is available or if the domain controller is not yet ready.
         /// </summary>
         public async Task<TestDefinition?> GetJobDetailsAsync(CancellationToken ct = default)

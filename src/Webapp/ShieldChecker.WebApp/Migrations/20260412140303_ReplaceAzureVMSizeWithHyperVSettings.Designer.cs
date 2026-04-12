@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ShieldChecker.DataAccess;
+using ShieldChecker.WebApp;
 
 #nullable disable
 
-namespace ShieldChecker.DataAccess.Migrations
+namespace ShieldChecker.WebApp.Migrations
 {
     [DbContext(typeof(ShieldCheckerContext))]
-    partial class ShieldCheckerContextModelSnapshot : ModelSnapshot
+    [Migration("20260412140303_ReplaceAzureVMSizeWithHyperVSettings")]
+    partial class ReplaceAzureVMSizeWithHyperVSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -37,46 +40,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("AutoScheduleTestDefinition");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.AuditLog", b =>
-                {
-                    b.Property<int>("ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorOid")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorUpn")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Details")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("EntityId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("ID");
-
-                    b.ToTable("AuditLog", (string)null);
-                });
-
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.AutoSchedule", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.AutoSchedule", b =>
                 {
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
@@ -111,7 +75,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("AutoSchedule", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SchedulerMutex", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SchedulerMutex", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -134,7 +98,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("SchedulerMutex", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.Settings", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.Settings", b =>
                 {
                     b.Property<int>("ID")
                         .HasColumnType("int");
@@ -221,7 +185,7 @@ namespace ShieldChecker.DataAccess.Migrations
                             }));
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SharedTestConsumption", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestConsumption", b =>
                 {
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
@@ -248,7 +212,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("SharedTestConsumption", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SharedTestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
                 {
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
@@ -327,7 +291,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("SharedTestDefinition", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SystemStatus", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SystemStatus", b =>
                 {
                     b.Property<int>("ID")
                         .HasColumnType("int");
@@ -351,7 +315,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("SystemStatus", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.TestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestDefinition", b =>
                 {
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
@@ -457,7 +421,7 @@ namespace ShieldChecker.DataAccess.Migrations
                             }));
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.TestJob", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestJob", b =>
                 {
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
@@ -520,7 +484,7 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.ToTable("TestJob", (string)null);
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.UserInfo", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.UserInfo", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -560,28 +524,28 @@ namespace ShieldChecker.DataAccess.Migrations
 
             modelBuilder.Entity("AutoScheduleTestDefinition", b =>
                 {
-                    b.HasOne("ShieldChecker.DataAccess.Models.AutoSchedule", null)
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.AutoSchedule", null)
                         .WithMany()
                         .HasForeignKey("AutoSchedulesID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ShieldChecker.DataAccess.Models.TestDefinition", null)
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.TestDefinition", null)
                         .WithMany()
                         .HasForeignKey("TestDefinitionsID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SharedTestConsumption", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestConsumption", b =>
                 {
-                    b.HasOne("ShieldChecker.DataAccess.Models.UserInfo", "ConsumedBy")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "ConsumedBy")
                         .WithMany()
                         .HasForeignKey("ConsumedByUserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("ShieldChecker.DataAccess.Models.SharedTestDefinition", "SharedTestDefinition")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", "SharedTestDefinition")
                         .WithMany("Consumptions")
                         .HasForeignKey("SharedTestDefinitionId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -592,14 +556,14 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.Navigation("SharedTestDefinition");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SharedTestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
                 {
-                    b.HasOne("ShieldChecker.DataAccess.Models.UserInfo", "ApprovedBy")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "ApprovedBy")
                         .WithMany()
                         .HasForeignKey("ApprovedById")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("ShieldChecker.DataAccess.Models.UserInfo", "SubmittedBy")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "SubmittedBy")
                         .WithMany()
                         .HasForeignKey("SubmittedById")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -610,21 +574,21 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.Navigation("SubmittedBy");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.TestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestDefinition", b =>
                 {
-                    b.HasOne("ShieldChecker.DataAccess.Models.UserInfo", "CreatedBy")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "CreatedBy")
                         .WithMany()
                         .HasForeignKey("CreatedById")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("ShieldChecker.DataAccess.Models.UserInfo", "ModifiedBy")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "ModifiedBy")
                         .WithMany()
                         .HasForeignKey("ModifiedById")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("ShieldChecker.DataAccess.Models.SharedTestDefinition", "SharedLibrarySource")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", "SharedLibrarySource")
                         .WithMany()
                         .HasForeignKey("SharedLibrarySourceId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -636,9 +600,9 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.Navigation("SharedLibrarySource");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.TestJob", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestJob", b =>
                 {
-                    b.HasOne("ShieldChecker.DataAccess.Models.TestDefinition", "UseCase")
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.TestDefinition", "UseCase")
                         .WithMany("TestJobs")
                         .HasForeignKey("UseCaseID")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -647,12 +611,12 @@ namespace ShieldChecker.DataAccess.Migrations
                     b.Navigation("UseCase");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.SharedTestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
                 {
                     b.Navigation("Consumptions");
                 });
 
-            modelBuilder.Entity("ShieldChecker.DataAccess.Models.TestDefinition", b =>
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestDefinition", b =>
                 {
                     b.Navigation("TestJobs");
                 });

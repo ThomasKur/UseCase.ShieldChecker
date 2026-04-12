@@ -37,6 +37,19 @@ namespace ShieldChecker.HostService
                     return;
                 }
 
+                string? hyperVAdminUsername = _configuration["HyperV:AdminUsername"];
+                string? hyperVAdminPassword = _configuration["HyperV:AdminPassword"];
+                bool hyperVEnabled = !string.IsNullOrWhiteSpace(hyperVAdminUsername)
+                                  && !string.IsNullOrWhiteSpace(hyperVAdminPassword);
+
+                if (!hyperVEnabled)
+                {
+                    _logger.LogWarning(
+                        "HyperV:AdminUsername or HyperV:AdminPassword is not configured. " +
+                        "Scripts will be executed locally instead of inside Hyper-V VMs. " +
+                        "Run with --setup to configure Hyper-V credentials.");
+                }
+
                 var tokenService = new TokenService(tenantId, clientId, clientSecret);
                 var engine = new HostEngine(
                     Environment.MachineName,
@@ -44,6 +57,28 @@ namespace ShieldChecker.HostService
                     apiScope,
                     tokenService,
                     _logger);
+
+                // Fetch VM settings once on startup; refresh on each cycle if needed.
+                VmSettings? vmSettings = null;
+                if (hyperVEnabled)
+                {
+                    try
+                    {
+                        vmSettings = await engine.GetVmSettingsAsync(stoppingToken);
+                        if (vmSettings == null)
+                            _logger.LogWarning("Could not retrieve VM settings from API. Falling back to local execution.");
+                        else
+                            _logger.LogInformation(
+                                "VM settings loaded – WorkerVM: {Cpu} CPUs / {Ram} MB / Windows image: {WinImg} / Linux image: {LinImg} / Storage: {Storage}",
+                                vmSettings.WorkerVMCpuCount, vmSettings.WorkerVMMemoryMB,
+                                vmSettings.WorkerVMWindowsImage, vmSettings.WorkerVMLinuxImage,
+                                vmSettings.VMStoragePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch VM settings. Falling back to local execution.");
+                    }
+                }
 
                 while (!stoppingToken.IsCancellationRequested)
                 {
@@ -56,7 +91,14 @@ namespace ShieldChecker.HostService
 
                         if (jobDetails != null)
                         {
-                            engine.ExecuteJobScripts(jobDetails);
+                            if (hyperVEnabled && vmSettings != null)
+                            {
+                                engine.ExecuteJobInVm(jobDetails, vmSettings, hyperVAdminUsername!, hyperVAdminPassword!);
+                            }
+                            else
+                            {
+                                engine.ExecuteJobScripts(jobDetails);
+                            }
 
                             string logFilePath = Path.Combine(AppContext.BaseDirectory, "logs", "executor.log");
                             string testOutput = File.Exists(logFilePath) ? File.ReadAllText(logFilePath) : string.Empty;
@@ -101,3 +143,4 @@ namespace ShieldChecker.HostService
         }
     }
 }
+

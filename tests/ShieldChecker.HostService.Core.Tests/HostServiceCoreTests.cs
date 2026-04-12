@@ -57,4 +57,73 @@ namespace ShieldChecker.HostService.Core.Tests
             Assert.Equal(OperatingSystem.Windows, td.OperatingSystem);
         }
     }
+
+    public class VmSettingsTests
+    {
+        [Fact]
+        public void VmSettings_DefaultValues_AreEmpty()
+        {
+            var settings = new VmSettings();
+            Assert.Equal(0, settings.WorkerVMCpuCount);
+            Assert.Equal(0L, settings.WorkerVMMemoryMB);
+            Assert.Equal(string.Empty, settings.WorkerVMWindowsImage);
+            Assert.Equal(string.Empty, settings.WorkerVMLinuxImage);
+            Assert.Equal(string.Empty, settings.VMStoragePath);
+        }
+
+        [Fact]
+        public void VmSettings_GetImagePathForOs_ReturnsWindowsImage()
+        {
+            var settings = new VmSettings
+            {
+                WorkerVMWindowsImage = @"D:\Images\Windows11.vhdx",
+                WorkerVMLinuxImage   = @"D:\Images\Ubuntu2404.vhdx"
+            };
+            Assert.Equal(@"D:\Images\Windows11.vhdx", settings.GetImagePathForOs(OperatingSystem.Windows));
+        }
+
+        [Fact]
+        public void VmSettings_GetImagePathForOs_ReturnsLinuxImage()
+        {
+            var settings = new VmSettings
+            {
+                WorkerVMWindowsImage = @"D:\Images\Windows11.vhdx",
+                WorkerVMLinuxImage   = @"D:\Images\Ubuntu2404.vhdx"
+            };
+            Assert.Equal(@"D:\Images\Ubuntu2404.vhdx", settings.GetImagePathForOs(OperatingSystem.Linux));
+        }
+
+        [Fact]
+        public void VmSettings_GetImagePathForOs_ThrowsForUnsupportedOs()
+        {
+            var settings = new VmSettings();
+            Assert.Throws<NotSupportedException>(() =>
+                settings.GetImagePathForOs((OperatingSystem)99));
+        }
+
+        [Fact]
+        public void VmSettings_Properties_AreSettable()
+        {
+            var settings = new VmSettings
+            {
+                WorkerVMCpuCount     = 4,
+                WorkerVMMemoryMB     = 8192,
+                WorkerVMWindowsImage = @"C:\Images\win.vhdx",
+                WorkerVMLinuxImage   = @"C:\Images\linux.vhdx",
+                DcVMCpuCount         = 2,
+                DcVMMemoryMB         = 4096,
+                DcVMImage            = @"C:\Images\dc.vhdx",
+                VMStoragePath        = @"D:\HyperV\VMs"
+            };
+
+            Assert.Equal(4, settings.WorkerVMCpuCount);
+            Assert.Equal(8192L, settings.WorkerVMMemoryMB);
+            Assert.Equal(@"C:\Images\win.vhdx", settings.WorkerVMWindowsImage);
+            Assert.Equal(@"C:\Images\linux.vhdx", settings.WorkerVMLinuxImage);
+            Assert.Equal(2, settings.DcVMCpuCount);
+            Assert.Equal(4096L, settings.DcVMMemoryMB);
+            Assert.Equal(@"C:\Images\dc.vhdx", settings.DcVMImage);
+            Assert.Equal(@"D:\HyperV\VMs", settings.VMStoragePath);
+        }
+    }
 }

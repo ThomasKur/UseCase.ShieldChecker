@@ -31,36 +31,45 @@
                 </div>
             </div>
             <div class="form-group">
-                <label asp-for="Settings.WorkerVMSize" class="form-label"></label>
-                <input asp-for="Settings.WorkerVMSize" class="form-control" />
-                <span asp-validation-for="Settings.WorkerVMSize" class="text-danger"></span>
+                <label asp-for="Settings.VMStoragePath" class="form-label"></label>
+                <input asp-for="Settings.VMStoragePath" class="form-control" placeholder="e.g. D:\HyperV\VMs" />
+                <span asp-validation-for="Settings.VMStoragePath" class="text-danger"></span>
+            </div>
+            <h4 class="mt-4">Worker VM</h4>
+            <div class="form-group">
+                <label asp-for="Settings.WorkerVMCpuCount" class="form-label"></label>
+                <input asp-for="Settings.WorkerVMCpuCount" class="form-control" type="number" min="1" max="128" />
+                <span asp-validation-for="Settings.WorkerVMCpuCount" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Settings.WorkerVMMemoryMB" class="form-label"></label>
+                <input asp-for="Settings.WorkerVMMemoryMB" class="form-control" type="number" min="512" max="1048576" />
+                <span asp-validation-for="Settings.WorkerVMMemoryMB" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Settings.WorkerVMWindowsImage" class="form-label"></label>
-                <select asp-for="Settings.WorkerVMWindowsImage" class="form-control">
-                    <option value="MicrosoftWindowsServer:WindowsServer:2022-datacenter-g2:latest">Windows Server 2022</option>
-                    <option value="MicrosoftWindowsDesktop:Windows-11:win11-21h2-ent:latest">Windows 11</option>
-                </select>
+                <input asp-for="Settings.WorkerVMWindowsImage" class="form-control" placeholder="e.g. D:\HyperV\Images\Windows11.vhdx" />
                 <span asp-validation-for="Settings.WorkerVMWindowsImage" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Settings.WorkerVMLinuxImage" class="form-label"></label>
-                <select asp-for="Settings.WorkerVMLinuxImage" class="form-control">
-                    <option value="RedHat:RHEL:8-lvm-gen2:latest">Red Hat Enterprise Linux 8</option>
-                    <option value="Canonical:ubuntu-24_04-lts:server:latest">Ubuntu 24.04 LTS</option>
-                </select>
+                <input asp-for="Settings.WorkerVMLinuxImage" class="form-control" placeholder="e.g. D:\HyperV\Images\Ubuntu2404.vhdx" />
                 <span asp-validation-for="Settings.WorkerVMLinuxImage" class="text-danger"></span>
             </div>
+            <h4 class="mt-4">Domain Controller VM</h4>
             <div class="form-group">
-                <label asp-for="Settings.DcVMSize" class="form-label"></label>
-                <input asp-for="Settings.DcVMSize" class="form-control" />
-                <span asp-validation-for="Settings.DcVMSize" class="text-danger"></span>
+                <label asp-for="Settings.DcVMCpuCount" class="form-label"></label>
+                <input asp-for="Settings.DcVMCpuCount" class="form-control" type="number" min="1" max="128" />
+                <span asp-validation-for="Settings.DcVMCpuCount" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Settings.DcVMMemoryMB" class="form-label"></label>
+                <input asp-for="Settings.DcVMMemoryMB" class="form-control" type="number" min="512" max="1048576" />
+                <span asp-validation-for="Settings.DcVMMemoryMB" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Settings.DcVMImage" class="form-label"></label>
-                <select asp-for="Settings.DcVMImage" class="form-control">
-                    <option value="MicrosoftWindowsServer:WindowsServer:2022-datacenter-g2:latest">Windows Server 2022</option>
-                </select>
+                <input asp-for="Settings.DcVMImage" class="form-control" placeholder="e.g. D:\HyperV\Images\WindowsServer2022.vhdx" />
                 <span asp-validation-for="Settings.DcVMImage" class="text-danger"></span>
             </div>
             <div class="form-group">

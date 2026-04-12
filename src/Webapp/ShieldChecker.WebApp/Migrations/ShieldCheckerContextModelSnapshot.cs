@@ -100,13 +100,15 @@ namespace ShieldChecker.WebApp.Migrations
                     b.Property<int>("ID")
                         .HasColumnType("int");
 
+                    b.Property<int>("DcVMCpuCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("DcVMImage")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DcVMSize")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<long>("DcVMMemoryMB")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("DomainControllerName")
                         .IsRequired()
@@ -145,13 +147,20 @@ namespace ShieldChecker.WebApp.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<string>("VMStoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("WorkerVMCpuCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("WorkerVMLinuxImage")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("WorkerVMSize")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<long>("WorkerVMMemoryMB")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("WorkerVMWindowsImage")
                         .IsRequired()
