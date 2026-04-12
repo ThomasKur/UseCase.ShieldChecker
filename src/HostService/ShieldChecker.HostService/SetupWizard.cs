@@ -73,8 +73,9 @@ namespace ShieldChecker.HostService
                 }
             }
 
+            // ─── Step 4 – Hyper-V VM credentials (optional) ────────────────────
             Console.WriteLine();
-            Console.WriteLine("Step 3 – Hyper-V VM credentials (optional)");
+            Console.WriteLine("Step 4 – Hyper-V VM credentials (optional)");
             Console.WriteLine("──────────────────────────────────────────────");
             Console.WriteLine("  If this host will create Hyper-V worker VMs for each test job, enter");
             Console.WriteLine("  the local administrator credentials used to log into those VMs via");

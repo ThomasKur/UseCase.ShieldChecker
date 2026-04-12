@@ -8,6 +8,9 @@ namespace ShieldChecker.HostService.Core
     /// Manages Hyper-V virtual machine lifecycle using PowerShell cmdlets.
     /// All operations run via <c>powershell.exe</c> so no additional NuGet packages
     /// are required – the Hyper-V PowerShell module ships with Windows Server / Hyper-V.
+    ///
+    /// All external values (paths, VM names, credentials) are passed to PowerShell via
+    /// environment variables rather than script-string interpolation, preventing injection attacks.
     /// </summary>
     public class HyperVManager
     {
@@ -22,30 +25,41 @@ namespace ShieldChecker.HostService.Core
         /// Creates a new Hyper-V virtual machine backed by a differencing disk derived
         /// from <paramref name="imagePath"/>.
         /// </summary>
-        /// <param name="vmName">Unique name for the new VM.</param>
-        /// <param name="imagePath">Full path to the gold-image VHDX file.</param>
-        /// <param name="cpuCount">Number of virtual processors to assign.</param>
-        /// <param name="memoryMB">Startup memory in megabytes.</param>
-        /// <param name="storagePath">Directory where the differencing VHD will be stored.</param>
         public void CreateVm(string vmName, string imagePath, int cpuCount, long memoryMB, string storagePath)
         {
             _logger.LogInformation("Creating Hyper-V VM '{VmName}' (CPUs: {Cpu}, RAM: {Ram} MB, image: {Image}).",
                 vmName, cpuCount, memoryMB, imagePath);
 
-            string vhdxPath = Path.Combine(storagePath, $"{vmName}.vhdx");
             long memoryBytes = memoryMB * 1024L * 1024L;
 
-            string script = $@"
+            // All external values are passed via environment variables – never interpolated into the script.
+            const string script = @"
 $ErrorActionPreference = 'Stop'
-if (-not (Test-Path '{storagePath}')) {{ New-Item -ItemType Directory -Path '{storagePath}' | Out-Null }}
-New-VHD -Path '{vhdxPath}' -ParentPath '{imagePath}' -Differencing | Out-Null
-New-VM -Name '{vmName}' -NoVHD -Generation 2 -Path '{storagePath}' | Out-Null
-Add-VMHardDiskDrive -VMName '{vmName}' -Path '{vhdxPath}' | Out-Null
-Set-VMProcessor -VMName '{vmName}' -Count {cpuCount}
-Set-VMMemory -VMName '{vmName}' -StartupBytes {memoryBytes}
-Set-VMFirmware -VMName '{vmName}' -EnableSecureBoot Off
+$vmName      = $env:SC_VM_NAME
+$imagePath   = $env:SC_IMAGE_PATH
+$storagePath = $env:SC_STORAGE_PATH
+$vhdxPath    = Join-Path $storagePath ($vmName + '.vhdx')
+$cpuCount    = [int]$env:SC_CPU_COUNT
+$memBytes    = [long]$env:SC_MEMORY_BYTES
+
+if (-not (Test-Path $storagePath)) { New-Item -ItemType Directory -Path $storagePath | Out-Null }
+New-VHD -Path $vhdxPath -ParentPath $imagePath -Differencing | Out-Null
+New-VM -Name $vmName -NoVHD -Generation 2 -Path $storagePath | Out-Null
+Add-VMHardDiskDrive -VMName $vmName -Path $vhdxPath | Out-Null
+Set-VMProcessor -VMName $vmName -Count $cpuCount
+Set-VMMemory -VMName $vmName -StartupBytes $memBytes
+Set-VMFirmware -VMName $vmName -EnableSecureBoot Off
 ";
-            RunPowerShell(script, "create VM");
+            var env = new Dictionary<string, string>
+            {
+                ["SC_VM_NAME"]      = vmName,
+                ["SC_IMAGE_PATH"]   = imagePath,
+                ["SC_STORAGE_PATH"] = storagePath,
+                ["SC_CPU_COUNT"]    = cpuCount.ToString(),
+                ["SC_MEMORY_BYTES"] = memoryBytes.ToString()
+            };
+
+            RunPowerShell(script, "create VM", env);
             _logger.LogInformation("VM '{VmName}' created successfully.", vmName);
         }
 
@@ -57,30 +71,34 @@ Set-VMFirmware -VMName '{vmName}' -EnableSecureBoot Off
         {
             _logger.LogInformation("Starting VM '{VmName}'.", vmName);
 
-            string script = $@"
+            const string script = @"
 $ErrorActionPreference = 'Stop'
-Start-VM -Name '{vmName}'
-$deadline = (Get-Date).AddSeconds({timeoutSeconds})
-do {{
+$vmName      = $env:SC_VM_NAME
+$timeoutSecs = [int]$env:SC_TIMEOUT_SECONDS
+Start-VM -Name $vmName
+$deadline = (Get-Date).AddSeconds($timeoutSecs)
+do {
     Start-Sleep -Seconds 5
-    $status = (Get-VMIntegrationService -VMName '{vmName}' -Name 'Heartbeat').PrimaryStatusDescription
-}} while ($status -ne 'OK' -and (Get-Date) -lt $deadline)
-if ($status -ne 'OK') {{ throw ""VM '{vmName}' heartbeat not detected within {timeoutSeconds} seconds."" }}
+    $status = (Get-VMIntegrationService -VMName $vmName -Name 'Heartbeat').PrimaryStatusDescription
+} while ($status -ne 'OK' -and (Get-Date) -lt $deadline)
+if ($status -ne 'OK') { throw 'VM heartbeat not detected within timeout.' }
 ";
-            RunPowerShell(script, "start VM");
+            var env = new Dictionary<string, string>
+            {
+                ["SC_VM_NAME"]         = vmName,
+                ["SC_TIMEOUT_SECONDS"] = timeoutSeconds.ToString()
+            };
+
+            RunPowerShell(script, "start VM", env);
             _logger.LogInformation("VM '{VmName}' started and heartbeat confirmed.", vmName);
         }
 
         /// <summary>
-        /// Runs a PowerShell script block inside the VM using PowerShell Direct
-        /// (<c>Invoke-Command -VMName</c>).  PowerShell Direct requires Hyper-V integration
-        /// services to be running in the guest and the caller to have local administrator
-        /// rights on the Hyper-V host.
+        /// Runs a PowerShell script inside the VM using PowerShell Direct
+        /// (<c>Invoke-Command -VMName -FilePath</c>).  The script content is written to a
+        /// temporary file whose path is passed via an environment variable, preventing injection.
+        /// PowerShell Direct requires Hyper-V integration services to be running in the guest.
         /// </summary>
-        /// <param name="vmName">Target VM name.</param>
-        /// <param name="scriptContent">PowerShell script content to execute in the guest.</param>
-        /// <param name="username">Guest local administrator username.</param>
-        /// <param name="password">Guest local administrator password.</param>
         public void RunScriptInVm(string vmName, string scriptContent, string username, string password)
         {
             if (string.IsNullOrWhiteSpace(scriptContent))
@@ -89,18 +107,38 @@ if ($status -ne 'OK') {{ throw ""VM '{vmName}' heartbeat not detected within {ti
                 return;
             }
 
-            // Escape single quotes in embedded content for PowerShell here-string
-            string escapedScript = scriptContent.Replace("'", "''");
-            string escapedPassword = password.Replace("'", "''");
+            // Write the guest script to a temp file; its path is passed via env var.
+            string guestScriptPath = Path.Combine(Path.GetTempPath(), $"sc-guest-{Guid.NewGuid()}.ps1");
+            File.WriteAllText(guestScriptPath, scriptContent, Encoding.UTF8);
 
-            string script = $@"
+            try
+            {
+                // The wrapper uses Invoke-Command -FilePath so the script content is never
+                // embedded in the outer script string.
+                const string wrapperScript = @"
 $ErrorActionPreference = 'Stop'
-$securePassword = ConvertTo-SecureString '{escapedPassword}' -AsPlainText -Force
-$credential = New-Object System.Management.Automation.PSCredential ('{username}', $securePassword)
-$scriptBlock = [ScriptBlock]::Create('{escapedScript}')
-Invoke-Command -VMName '{vmName}' -Credential $credential -ScriptBlock $scriptBlock
+$vmName     = $env:SC_VM_NAME
+$username   = $env:SC_USERNAME
+$password   = $env:SC_PASSWORD | ConvertTo-SecureString -AsPlainText -Force
+$scriptFile = $env:SC_SCRIPT_FILE
+$credential = New-Object System.Management.Automation.PSCredential ($username, $password)
+Invoke-Command -VMName $vmName -Credential $credential -FilePath $scriptFile
 ";
-            RunPowerShell(script, $"run script in VM '{vmName}'");
+                var env = new Dictionary<string, string>
+                {
+                    ["SC_VM_NAME"]    = vmName,
+                    ["SC_USERNAME"]   = username,
+                    ["SC_PASSWORD"]   = password,
+                    ["SC_SCRIPT_FILE"] = guestScriptPath
+                };
+
+                RunPowerShell(wrapperScript, $"run script in VM '{vmName}'", env);
+            }
+            finally
+            {
+                if (File.Exists(guestScriptPath))
+                    File.Delete(guestScriptPath);
+            }
         }
 
         /// <summary>
@@ -110,22 +148,30 @@ Invoke-Command -VMName '{vmName}' -Credential $credential -ScriptBlock $scriptBl
         {
             _logger.LogInformation("Removing Hyper-V VM '{VmName}'.", vmName);
 
-            string vhdxPath = Path.Combine(storagePath, $"{vmName}.vhdx");
-            string script = $@"
+            const string script = @"
 $ErrorActionPreference = 'Stop'
-if (Get-VM -Name '{vmName}' -ErrorAction SilentlyContinue) {{
-    Stop-VM -Name '{vmName}' -Force -TurnOff
-    Remove-VM -Name '{vmName}' -Force
-}}
-if (Test-Path '{vhdxPath}') {{ Remove-Item '{vhdxPath}' -Force }}
+$vmName      = $env:SC_VM_NAME
+$storagePath = $env:SC_STORAGE_PATH
+$vhdxPath    = Join-Path $storagePath ($vmName + '.vhdx')
+if (Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
+    Stop-VM -Name $vmName -Force -TurnOff
+    Remove-VM -Name $vmName -Force
+}
+if (Test-Path $vhdxPath) { Remove-Item $vhdxPath -Force }
 ";
-            RunPowerShell(script, "remove VM");
+            var env = new Dictionary<string, string>
+            {
+                ["SC_VM_NAME"]      = vmName,
+                ["SC_STORAGE_PATH"] = storagePath
+            };
+
+            RunPowerShell(script, "remove VM", env);
             _logger.LogInformation("VM '{VmName}' removed.", vmName);
         }
 
         // ── Private helpers ──────────────────────────────────────────────────────
 
-        private void RunPowerShell(string script, string operationName)
+        private void RunPowerShell(string script, string operationName, Dictionary<string, string>? envVars = null)
         {
             string tempScript = Path.Combine(Path.GetTempPath(), $"sc-hyperv-{Guid.NewGuid()}.ps1");
             File.WriteAllText(tempScript, script, Encoding.UTF8);
@@ -142,6 +188,12 @@ if (Test-Path '{vhdxPath}') {{ Remove-Item '{vhdxPath}' -Force }}
                     CreateNoWindow = true
                 };
 
+                if (envVars != null)
+                {
+                    foreach (var (key, value) in envVars)
+                        psi.Environment[key] = value;
+                }
+
                 using var process = new Process { StartInfo = psi };
                 var stdout = new StringBuilder();
                 var stderr = new StringBuilder();
@@ -152,13 +204,19 @@ if (Test-Path '{vhdxPath}') {{ Remove-Item '{vhdxPath}' -Force }}
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
-                process.WaitForExit(new TimeSpan(0, 10, 0));
 
-                if (!process.HasExited)
+                bool exited = process.WaitForExit(TimeSpan.FromMinutes(10));
+
+                if (!exited)
                 {
                     process.Kill();
+                    // Flush async readers after killing
+                    process.WaitForExit();
                     throw new TimeoutException($"Hyper-V operation '{operationName}' timed out after 10 minutes.");
                 }
+
+                // Second WaitForExit() (no timeout) ensures async output readers have flushed.
+                process.WaitForExit();
 
                 if (stdout.Length > 0)
                     _logger.LogInformation("HyperV [{Op}] STDOUT: {Out}", operationName, stdout);
