@@ -1,70 +1,74 @@
-﻿@page "/job-status"
+@page "/job-status"
 @using ShieldChecker.WebApp.Models.Db
-@using ShieldChecker.WebApp.Helper
-@using PSC.Blazor.Components.Chartjs
-@using PSC.Blazor.Components.Chartjs.Enums
-@using PSC.Blazor.Components.Chartjs.Models
-@using PSC.Blazor.Components.Chartjs.Models.Common
-@using PSC.Blazor.Components.Chartjs.Models.Bar
-@using PSC.Blazor.Components.Chartjs.Models.Bubble
-@using PSC.Blazor.Components.Chartjs.Models.Doughnut
-@using PSC.Blazor.Components.Chartjs.Models.Line
-@using PSC.Blazor.Components.Chartjs.Models.Pie
-@using PSC.Blazor.Components.Chartjs.Models.Polar
-@using PSC.Blazor.Components.Chartjs.Models.Radar
-@using PSC.Blazor.Components.Chartjs.Models.Scatter
+@inject IJSRuntime JS
+@inject ShieldCheckerContext Context
 
 <div class="card">
     <h2 class="card-header">
         Job Status (Past 30 days)
     </h2>
     <div class="card-body">
-        <Chart Config="_config1" @ref="_chart1"></Chart>
-
+        <canvas id="chart-job-status" style="max-height:300px;"></canvas>
     </div>
 </div>
 
 @code {
+    private List<string> _labels = new();
+    private List<int> _counts = new();
 
-    private SystemStatus Status;
-    private DoughnutChartConfig? _config1;
-    private Chart? _chart1;
+    // Colours match the original ChartSettings.ChartColors list
+    private static readonly string[] ChartColors =
+    [
+        "rgb(59,125,221)", "rgb(10,10,10)", "rgb(111,66,193)", "rgb(232,62,140)",
+        "rgb(220,53,69)", "rgb(253,126,20)", "rgb(252,185,44)", "rgb(28,187,140)",
+        "rgb(32,201,151)", "rgb(23,162,184)"
+    ];
 
-    private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;
-    public CoJobStatusChart(ShieldCheckerContext context)
+    protected override void OnInitialized()
     {
-        _context = context;
+        var jobStatus = Context.TestJobs
+            .Where(j => j.Created > DateTime.UtcNow.AddDays(-30))
+            .GroupBy(j => j.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToList();
 
+        foreach (var item in jobStatus)
+        {
+            _labels.Add(Enum.GetName(typeof(JobStatus), item.Status) ?? item.Status.ToString());
+            _counts.Add(item.Count);
+        }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var JobStatus = _context.TestJobs.Where(JobResult => JobResult.Created > DateTime.UtcNow.AddDays(-30)).GroupBy(JobResult => JobResult.Status).Select(JobResult => new { Status = JobResult.Key, Count = JobResult.Count() }).ToList();
-        _config1 = new DoughnutChartConfig()
+        if (!firstRender) return;
+
+        var config = new
+        {
+            type = "doughnut",
+            data = new
             {
-                Options = new Options()
+                labels = _labels,
+                datasets = new object[]
                 {
-                    Responsive = true,
-                    MaintainAspectRatio = false,
-                    Plugins = new Plugins()
+                    new
                     {
-                        Legend = new Legend()
-                        {
-                            Display = true,
-                            Position = LegendPosition.Left
-                        }
+                        label = "Jobs",
+                        data = _counts,
+                        backgroundColor = ChartColors.Take(_counts.Count).ToArray(),
+                        hoverOffset = 4
                     }
                 }
-            };
-
-        _config1.Data.Labels = JobStatus.Select(j => Enum.GetName(typeof(JobStatus), j.Status)).ToList<string>();
-
-        _config1.Data.Datasets.Add(new DoughnutDataset()
+            },
+            options = new
             {
-                Label = "Jobs",
-                Data = JobStatus.Select(j => (decimal?)Convert.ToDecimal(j.Count)).ToList(),
-                BackgroundColor = ChartSettings.ChartColors,
-                HoverOffset = 4
-            });
+                responsive = true,
+                maintainAspectRatio = false,
+                plugins = new { legend = new { display = true, position = "left" } }
+            }
+        };
+
+        await JS.InvokeVoidAsync("ShieldCheckerCharts.createChart", "chart-job-status", config);
     }
 }
+

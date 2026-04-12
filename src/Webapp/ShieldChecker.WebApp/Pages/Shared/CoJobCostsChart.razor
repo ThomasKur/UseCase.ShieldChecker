@@ -1,107 +1,79 @@
-﻿@page "/job-costs"
+@page "/job-costs"
 @using ShieldChecker.WebApp.Models.Db
-@using ShieldChecker.WebApp.Helper
-@using PSC.Blazor.Components.Chartjs
-@using PSC.Blazor.Components.Chartjs.Enums
-@using PSC.Blazor.Components.Chartjs.Models
-@using PSC.Blazor.Components.Chartjs.Models.Common
-@using PSC.Blazor.Components.Chartjs.Models.Bar
-@using PSC.Blazor.Components.Chartjs.Models.Bubble
-@using PSC.Blazor.Components.Chartjs.Models.Doughnut
-@using PSC.Blazor.Components.Chartjs.Models.Line
-@using PSC.Blazor.Components.Chartjs.Models.Pie
-@using PSC.Blazor.Components.Chartjs.Models.Polar
-@using PSC.Blazor.Components.Chartjs.Models.Radar
-@using PSC.Blazor.Components.Chartjs.Models.Scatter
+@inject IJSRuntime JS
+@inject ShieldCheckerContext Context
 
 <div class="card">
     <h2 class="card-header">
         Approx Azure Costs
     </h2>
     <div class="card-body">
-        <Chart Config="_config1" @ref="_chart1"></Chart>
-        Price in USD with B2ms VMSize and average Runtime of @_WorkerTimeout minutes.
+        <canvas id="chart-job-costs" style="max-height:300px;"></canvas>
+        Price in USD with B2ms VMSize and average Runtime of @_workerTimeout minutes.
     </div>
 </div>
 
 @code {
+    private List<string> _labels = new();
+    private List<double> _costData = new();
+    private int _workerTimeout;
 
-
-    private LineChartConfig? _config1;
-    private Chart? _chart1;
-    private int _WorkerTimeout;
-
-    private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;
-    public CoJobCostsChart(ShieldCheckerContext context)
+    protected override void OnInitialized()
     {
-        _context = context;
+        var jobStatusTotal = Context.TestJobs
+            .Where(j => j.Created > DateTime.UtcNow.AddDays(-30))
+            .GroupBy(j => j.Created.Date)
+            .Select(g => new { Date = g.Key.Date, Count = g.Count() })
+            .ToList();
 
+        var settings = Context.Settings.FirstOrDefault();
+        _workerTimeout = settings?.JobTimeout ?? 60;
+
+        for (var d = DateTime.Now.AddDays(-30).Date; d < DateTime.Now.Date; d = d.AddDays(1))
+        {
+            _labels.Add(d.ToShortDateString());
+            var count = jobStatusTotal.FirstOrDefault(j => j.Date == d)?.Count ?? 0;
+            _costData.Add(Math.Round(count * (_workerTimeout / 60.0) * 0.09, 4));
+        }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender) return;
 
-        var JobStatusTotal = _context.TestJobs.Where(JobResult => JobResult.Created > DateTime.UtcNow.AddDays(-30)).GroupBy(JobResult => JobResult.Created.Date).Select(JobResult => new { Date = JobResult.Key.Date, Count = JobResult.Count() }).ToList();
-        var Settings = _context.Settings.FirstOrDefault();
-        _WorkerTimeout = Settings?.JobTimeout ?? 60;
-        _config1 = new LineChartConfig()
+        var config = new
+        {
+            type = "line",
+            data = new
             {
-                Options = new Options()
+                labels = _labels,
+                datasets = new object[]
                 {
-                    Responsive = true,
-                    MaintainAspectRatio = false,
-                    Plugins = new Plugins()
+                    new
                     {
-                        Legend = new Legend()
-                        {
-                            Display = true,
-                            Position = LegendPosition.Left
-                        }
-                    },
-                    Scales = new Dictionary<string, Axis>()
-                    {
-                        {
-                            Scales.XAxisId, new Axis()
-                            {
-                                Stacked = true,
-                                Ticks = new Ticks()
-                                {
-                                    MaxRotation = 0,
-                                    MinRotation = 0,
-                                    AutoSkip = true
-                                }
-                            }
-                        },
-                        {
-                            Scales.YAxisId, new Axis()
-                            {
-                                Stacked = true,
-                                Title = new AxesTitle()
-                                {
-                                    Display = true,
-                                    Text = "Costs in USD"
-                                }
-                            }
-                        }
+                        label = "Cost (USD)",
+                        data = _costData,
+                        backgroundColor = "rgba(59,125,221,0.2)",
+                        borderColor = "rgb(59,125,221)",
+                        fill = true,
+                        tension = 0.3
                     }
                 }
-            };
-
-        _config1.Data.Labels = new List<string>();
-        for (DateTime d = DateTime.Now.AddDays(-30); d < DateTime.Now; d = d.AddDays(1))
-        {
-            _config1.Data.Labels.Add(d.Date.ToShortDateString());
-            if (JobStatusTotal.Where(j => j.Date.Date == d.Date.Date).Count() == 0)
+            },
+            options = new
             {
-                JobStatusTotal.Add(new { Date = d.Date, Count = 0 });
+                responsive = true,
+                maintainAspectRatio = false,
+                plugins = new { legend = new { display = true, position = "left" } },
+                scales = new
+                {
+                    x = new { stacked = true, ticks = new { maxRotation = 0, autoSkip = true } },
+                    y = new { stacked = true, title = new { display = true, text = "Costs in USD" } }
+                }
             }
-        }
-        _config1.Data.Datasets.Add(new LineDataset()
-            {
-                Label = "Jobs",
-                Data = JobStatusTotal.OrderBy(j => j.Date).Select(j => (decimal?)Convert.ToDecimal(j.Count * (_WorkerTimeout/60) * 0.09)).ToList(),
-                BackgroundColor = ChartSettings.ChartColors[0]
-            });
+        };
 
+        await JS.InvokeVoidAsync("ShieldCheckerCharts.createChart", "chart-job-costs", config);
     }
 }
+

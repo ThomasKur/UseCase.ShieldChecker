@@ -91,9 +91,8 @@
     <script src="~/js/datatables.js" asp-append-version="true"></script>
     <script src="~/js/fullcalendar.js" asp-append-version="true"></script>
     <script src="~/_framework/blazor.server.js"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/lib/Chart.js/chart.js"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/Chart.js" type="module"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/lib/chartjs-plugin-datalabels/chartjs-plugin-datalabels.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

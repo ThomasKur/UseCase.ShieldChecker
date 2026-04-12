@@ -28,6 +28,21 @@ namespace ShieldChecker.WebApp
             {
                 // By default, all incoming requests will be authorized according to the default policy.
                 options.FallbackPolicy = options.DefaultPolicy;
+
+                // ── In-app RBAC ───────────────────────────────────────────────────
+                // These policies map to AppRoles configured in the ShieldChecker WebApp
+                // app registration in Entra ID.  Assign roles to users/groups in the
+                // Enterprise Applications blade.
+                //
+                //   ShieldChecker.Admin    – full control (settings, delete, approve)
+                //   ShieldChecker.Operator – run/rerun/cancel tests
+                //   ShieldChecker.Viewer   – read-only access
+                options.AddPolicy("RequireAdmin", policy =>
+                    policy.RequireRole("ShieldChecker.Admin"));
+                options.AddPolicy("RequireOperator", policy =>
+                    policy.RequireRole("ShieldChecker.Admin", "ShieldChecker.Operator"));
+                options.AddPolicy("RequireViewer", policy =>
+                    policy.RequireRole("ShieldChecker.Admin", "ShieldChecker.Operator", "ShieldChecker.Viewer"));
             });
             builder.Services.AddRazorPages()
                 .AddMicrosoftIdentityUI();

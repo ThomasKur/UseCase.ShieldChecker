@@ -60,6 +60,23 @@ namespace ShieldChecker.HostServiceApi.Controllers
 
             await _context.SaveChangesAsync(ct);
 
+            // Auto-retry jobs that failed due to Azure Spot VM eviction
+            if (job.Status == JobStatus.AzureSpotEvicted)
+            {
+                var retryJob = new TestJob
+                {
+                    UseCaseID = job.UseCaseID,
+                    Created = DateTime.UtcNow,
+                    Modified = DateTime.UtcNow,
+                    Status = JobStatus.Queued,
+                    Result = JobResult.Undetermined,
+                    SchedulerLog = $"Auto-retried after AzureSpotEviction of job {job.ID}"
+                };
+                _context.TestJobs.Add(retryJob);
+                await _context.SaveChangesAsync(ct);
+                _logger.LogInformation("Auto-retried job {JobId} (was AzureSpotEvicted) as new job {NewJobId}.", job.ID, retryJob.ID);
+            }
+
             _logger.LogInformation("Updated job {JobId} for worker '{Worker}' with status {Status}.", job.ID, safeWorkerName, job.Status);
             return Ok();
         }

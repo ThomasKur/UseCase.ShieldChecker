@@ -36,7 +36,6 @@
     <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="4.7.0" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.17.0" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.2" />
-    <PackageReference Include="PSC.Blazor.Components.Chartjs" Version="8.0.8" />
   </ItemGroup>
 
   <ItemGroup>

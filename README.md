@@ -38,6 +38,55 @@ The platform consists of several key components:
 - **Host Service** (`src/HostService/`) - Agent running on test machines to execute security tests
 - **Bicep Templates** (`src/Bicep/`) - Infrastructure as Code for Azure deployment
 
+### Component Diagram
+
+```mermaid
+graph TB
+    subgraph Browser["User Browser"]
+        UI["ShieldChecker WebApp\n(Razor Pages + Blazor)"]
+    end
+
+    subgraph ContainerApps["Azure Container Apps Environment"]
+        WEBAPP["WebApp\n:8080"]
+        BACKEND["BackendApi\n:8080\n[WebApp.Access AppRole]"]
+        HSAPI["HostServiceApi\n:8080\n[HostService.Access AppRole]"]
+        IMPORTAPI["ImportApi\n:8080\n[Import.SharedLibrary AppRole]"]
+    end
+
+    subgraph TestNetwork["Test VM Network (Azure VNet)"]
+        HOSTSVC["HostService Agent\n(PowerShell + .NET)"]
+        WORKERVM["Worker VM\n(Windows / Linux)"]
+        DCVM["Domain Controller VM"]
+    end
+
+    subgraph AzureServices["Azure Services"]
+        SQL[("Azure SQL\nDatabase")]
+        KV["Azure Key Vault"]
+        ACR["Azure Container\nRegistry"]
+        ENTRA["Entra ID\n(App Registrations)"]
+        APPI["Application Insights"]
+    end
+
+    Browser -->|HTTPS / OIDC| WEBAPP
+    WEBAPP -->|JWT Bearer\n[WebApp.Access]| BACKEND
+    HOSTSVC -->|JWT Bearer\n[HostService.Access]| HSAPI
+    HOSTSVC -->|Executes tests on| WORKERVM
+    HOSTSVC -->|Executes tests on| DCVM
+
+    BACKEND --- SQL
+    HSAPI --- SQL
+    IMPORTAPI --- SQL
+    BACKEND --- KV
+    HSAPI --- KV
+    IMPORTAPI --- KV
+    WEBAPP --- ENTRA
+    BACKEND --- ENTRA
+    HSAPI --- ENTRA
+    IMPORTAPI --- ENTRA
+    ContainerApps -.->|Metrics & Traces| APPI
+    ACR -->|Pull images| ContainerApps
+```
+
 ## Getting Started
 
 Check the [Deployment Guide](docs/Deployment.md) for detailed instructions regarding deployment.

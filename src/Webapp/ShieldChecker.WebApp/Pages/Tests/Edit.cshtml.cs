@@ -14,8 +14,10 @@ using Azure;
 using Microsoft.AspNetCore.Builder.Extensions;
 
 
+using Microsoft.AspNetCore.Authorization;
 namespace ShieldChecker.WebApp.Pages.Tests
 {
+    [Authorize(Policy = "RequireOperator")]
     public class EditModel : PageModel
     {
         private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;

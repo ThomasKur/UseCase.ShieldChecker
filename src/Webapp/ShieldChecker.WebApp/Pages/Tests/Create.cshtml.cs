@@ -14,8 +14,10 @@ using ShieldChecker.WebApp.Models.Db;
 using ShieldChecker.WebApp.Models.View;
 
 
+using Microsoft.AspNetCore.Authorization;
 namespace ShieldChecker.WebApp.Pages.Tests
 {
+    [Authorize(Policy = "RequireOperator")]
     public class CreateModel : PageModel
     {
         private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;
