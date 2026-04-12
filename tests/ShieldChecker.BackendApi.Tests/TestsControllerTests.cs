@@ -73,6 +73,29 @@ namespace ShieldChecker.BackendApi.Tests
         }
 
         [Fact]
+        public async Task BulkQueue_InvalidatesJobsAllCache()
+        {
+            // Pre-populate the jobs:all cache
+            _cache.Set("jobs:all", new List<TestJob>(), TimeSpan.FromMinutes(5));
+
+            var req = new BulkTestQueueRequest { Ids = new List<int> { 1, 2 } };
+            await _controller.BulkQueue(req, CancellationToken.None);
+
+            // Cache should have been invalidated
+            Assert.False(_cache.TryGetValue("jobs:all", out _));
+        }
+
+        [Fact]
+        public async Task BulkQueue_CreatesJobsForEnabledTests()
+        {
+            var req = new BulkTestQueueRequest { Ids = new List<int> { 1, 2 } };
+            var result = await _controller.BulkQueue(req, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(2, _context.TestJobs.Count());
+        }
+
+        [Fact]
         public async Task BulkQueue_WritesAuditLogEntry()
         {
             var req = new BulkTestQueueRequest { Ids = new List<int> { 1, 2 } };
