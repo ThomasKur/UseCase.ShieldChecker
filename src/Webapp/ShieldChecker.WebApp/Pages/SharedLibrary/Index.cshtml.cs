@@ -17,7 +17,7 @@ namespace ShieldChecker.WebApp.Pages.SharedLibrary
             _configuration = configuration;
         }
 
-        public List<SharedTestDefinition> SharedTests { get; set; } = new();
+        public PaginatedList<SharedTestDefinition> SharedTests { get; set; } = default!;
 
         /// <summary>Counts of consumptions per SharedTestDefinition.ID.</summary>
         public Dictionary<int, int> ConsumptionCounts { get; set; } = new();
@@ -32,6 +32,9 @@ namespace ShieldChecker.WebApp.Pages.SharedLibrary
 
         [BindProperty(SupportsGet = true)]
         public string? OsFilter { get; set; }
+
+        [BindProperty(SupportsGet = true)]
+        public int? PageIndex { get; set; }
 
         [TempData]
         public string? StatusMessage { get; set; }
@@ -57,7 +60,8 @@ namespace ShieldChecker.WebApp.Pages.SharedLibrary
             if (!string.IsNullOrWhiteSpace(OsFilter) && Enum.TryParse<ShieldChecker.WebApp.Models.Db.OperatingSystem>(OsFilter, out var os))
                 query = query.Where(s => s.OperatingSystem == os);
 
-            SharedTests = await query.OrderBy(s => s.Name).ToListAsync();
+            var pageSize = _configuration.GetValue("PageSize", 25);
+            SharedTests = await PaginatedList<SharedTestDefinition>.CreateAsync(query.OrderBy(s => s.Name), PageIndex ?? 1, pageSize);
 
             var ids = SharedTests.Select(s => s.ID).ToList();
             ConsumptionCounts = await _context.SharedTestConsumptions

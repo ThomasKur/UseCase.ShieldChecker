@@ -122,6 +122,62 @@
     </tbody>
 </table>
 
+@{
+    var prevDisabled = !Model.SharedTests.HasPreviousPage ? "disabled" : "";
+    var nextDisabled = !Model.SharedTests.HasNextPage ? "disabled" : "";
+}
+
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <span class="text-muted">
+        @Model.SharedTests.TotalCount shared test(s) found &mdash; Page @Model.SharedTests.PageIndex of @Model.SharedTests.TotalPages
+    </span>
+
+    <nav aria-label="Shared library page navigation">
+        <ul class="pagination mb-0">
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="1"
+                   asp-route-searchString="@Model.SearchString" asp-route-mitreTechniqueFilter="@Model.MitreTechniqueFilter" asp-route-osFilter="@Model.OsFilter">First</a>
+            </li>
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.SharedTests.PageIndex - 1)"
+                   asp-route-searchString="@Model.SearchString" asp-route-mitreTechniqueFilter="@Model.MitreTechniqueFilter" asp-route-osFilter="@Model.OsFilter">Previous</a>
+            </li>
+
+            @{
+                int startPage = Math.Max(1, Model.SharedTests.PageIndex - 2);
+                int endPage = Math.Min(Model.SharedTests.TotalPages, Model.SharedTests.PageIndex + 2);
+
+                if (startPage > 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+
+                for (int i = startPage; i <= endPage; i++)
+                {
+                    <li class="page-item @(i == Model.SharedTests.PageIndex ? "active" : "")">
+                        <a class="page-link" asp-page="./Index" asp-route-pageIndex="@i"
+                           asp-route-searchString="@Model.SearchString" asp-route-mitreTechniqueFilter="@Model.MitreTechniqueFilter" asp-route-osFilter="@Model.OsFilter">@i</a>
+                    </li>
+                }
+
+                if (endPage < Model.SharedTests.TotalPages)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+            }
+
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.SharedTests.PageIndex + 1)"
+                   asp-route-searchString="@Model.SearchString" asp-route-mitreTechniqueFilter="@Model.MitreTechniqueFilter" asp-route-osFilter="@Model.OsFilter">Next</a>
+            </li>
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@Model.SharedTests.TotalPages"
+                   asp-route-searchString="@Model.SearchString" asp-route-mitreTechniqueFilter="@Model.MitreTechniqueFilter" asp-route-osFilter="@Model.OsFilter">Last</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function () {
