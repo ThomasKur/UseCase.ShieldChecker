@@ -73,6 +73,19 @@ namespace ShieldChecker.HostService
                 }
             }
 
+            Console.WriteLine();
+            Console.WriteLine("Step 3 – Hyper-V VM credentials (optional)");
+            Console.WriteLine("──────────────────────────────────────────────");
+            Console.WriteLine("  If this host will create Hyper-V worker VMs for each test job, enter");
+            Console.WriteLine("  the local administrator credentials used to log into those VMs via");
+            Console.WriteLine("  PowerShell Direct.  Leave blank to run scripts locally instead.");
+            Console.WriteLine();
+
+            string hyperVUsername = Prompt("Hyper-V VM admin username (or press Enter to skip)");
+            string hyperVPassword = string.Empty;
+            if (!string.IsNullOrWhiteSpace(hyperVUsername))
+                hyperVPassword = PromptSecret("Hyper-V VM admin password");
+
             // ─── Step 3 – Write configuration ──────────────────────────────────
             string appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
@@ -96,6 +109,11 @@ namespace ShieldChecker.HostService
                     ["TenantId"] = tenantId,
                     ["ClientId"] = clientId,
                     ["ClientSecret"] = clientSecret
+                },
+                ["HyperV"] = new Dictionary<string, string>
+                {
+                    ["AdminUsername"] = hyperVUsername,
+                    ["AdminPassword"] = hyperVPassword
                 }
             };
 
@@ -106,9 +124,9 @@ namespace ShieldChecker.HostService
             Console.WriteLine($"✔  Configuration written to {appSettingsPath}");
             Console.ResetColor();
 
-            // ─── Step 4 – Register as platform service (optional) ──────────────
+            // ─── Step 5 – Register as platform service (optional) ──────────────
             Console.WriteLine();
-            Console.WriteLine("Step 4 – Register as a system service (optional)");
+            Console.WriteLine("Step 5 – Register as a system service (optional)");
             Console.WriteLine("─────────────────────────────────────────────────");
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
