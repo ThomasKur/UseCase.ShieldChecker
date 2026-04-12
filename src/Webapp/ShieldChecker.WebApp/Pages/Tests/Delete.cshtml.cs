@@ -8,8 +8,10 @@ using Microsoft.EntityFrameworkCore;
 using ShieldChecker.WebApp;
 using ShieldChecker.WebApp.Models.Db;
 
+using Microsoft.AspNetCore.Authorization;
 namespace ShieldChecker.WebApp.Pages.Tests
 {
+    [Authorize(Policy = "RequireAdmin")]
     public class DeleteModel : PageModel
     {
         private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;

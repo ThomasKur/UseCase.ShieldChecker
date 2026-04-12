@@ -39,6 +39,9 @@
                                 <li class="nav-item">
                                     <a class="nav-link text-dark" asp-area="" asp-page="/Jobs/Index">Jobs</a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-area="" asp-page="/SharedLibrary/Index">Shared Library</a>
+                                </li>
                                 <li class="nav-item dropdown">
                                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Administration
@@ -59,6 +62,9 @@
                                         </li>
                                         <li>
                                             <a class="dropdown-item" asp-area="" asp-page="/Settings/HostService/Index">HostService Download</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-area="" asp-page="/SharedLibrary/Approve">Pending Submissions</a>
                                         </li>
                                     </ul>
                                 </li>
@@ -85,9 +91,8 @@
     <script src="~/js/datatables.js" asp-append-version="true"></script>
     <script src="~/js/fullcalendar.js" asp-append-version="true"></script>
     <script src="~/_framework/blazor.server.js"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/lib/Chart.js/chart.js"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/Chart.js" type="module"></script>
-    <script src="~/_content/PSC.Blazor.Components.Chartjs/lib/chartjs-plugin-datalabels/chartjs-plugin-datalabels.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

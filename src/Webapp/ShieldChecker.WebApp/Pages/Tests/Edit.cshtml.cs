@@ -14,8 +14,10 @@ using Azure;
 using Microsoft.AspNetCore.Builder.Extensions;
 
 
+using Microsoft.AspNetCore.Authorization;
 namespace ShieldChecker.WebApp.Pages.Tests
 {
+    [Authorize(Policy = "RequireOperator")]
     public class EditModel : PageModel
     {
         private readonly ShieldChecker.WebApp.ShieldCheckerContext _context;
@@ -27,6 +29,13 @@ namespace ShieldChecker.WebApp.Pages.Tests
 
         [BindProperty]
         public ViewEditTest Test { get; set; } = default!;
+
+        /// <summary>True when the last completed job for this test succeeded.</summary>
+        public bool CanShare { get; set; }
+
+        [TempData]
+        public string? StatusMessage { get; set; }
+
         public async Task<IActionResult> OnGetAsync(int? id)
         {
             if (id == null)
@@ -66,6 +75,15 @@ namespace ShieldChecker.WebApp.Pages.Tests
             {
                 Test.Enabled = test.Enabled.Value;
             }
+
+            var latestCompletedJob = await _context.TestJobs
+                .Where(j => j.UseCaseID == test.ID && j.Status == JobStatus.Completed)
+                .OrderByDescending(j => j.Modified)
+                .FirstOrDefaultAsync();
+
+            CanShare = latestCompletedJob != null &&
+                       (latestCompletedJob.Result == JobResult.Success ||
+                        latestCompletedJob.Result == JobResult.SuccessWithOtherDetection);
 
             return Page();
         }
@@ -112,6 +130,69 @@ namespace ShieldChecker.WebApp.Pages.Tests
             {
                 return Page();
             }
+        }
+
+        public async Task<IActionResult> OnPostShareAsync(int? id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var test = await _context.UseCaseTests.FindAsync(id);
+            if (test == null)
+                return NotFound();
+
+            // Server-side re-validation
+            var latestCompletedJob = await _context.TestJobs
+                .Where(j => j.UseCaseID == id && j.Status == JobStatus.Completed)
+                .OrderByDescending(j => j.Modified)
+                .FirstOrDefaultAsync();
+
+            if (latestCompletedJob == null ||
+                (latestCompletedJob.Result != JobResult.Success &&
+                 latestCompletedJob.Result != JobResult.SuccessWithOtherDetection))
+            {
+                StatusMessage = "Error: Only tests with a successful last job run can be shared to the community.";
+                return RedirectToPage(new { id });
+            }
+
+            var currentUser = UserInfo.EnsureUserInDb(User, _context);
+
+            var existing = test.SharedLibrarySourceId.HasValue
+                ? await _context.SharedTestLibrary.FindAsync(test.SharedLibrarySourceId.Value)
+                : null;
+
+            if (existing != null && existing.Status == SharedTestStatus.Approved)
+            {
+                StatusMessage = "Error: An approved shared library entry already exists for this test.";
+                return RedirectToPage(new { id });
+            }
+
+            var shared = new SharedTestDefinition
+            {
+                Name = test.Name,
+                MitreTechnique = test.MitreTechnique,
+                Description = test.Description,
+                ExpectedAlertTitle = test.ExpectedAlertTitle,
+                ScriptTest = test.ScriptTest,
+                ScriptPrerequisites = test.ScriptPrerequisites,
+                ScriptCleanup = test.ScriptCleanup,
+                ElevationRequired = test.ElevationRequired,
+                OperatingSystem = test.OperatingSystem,
+                ExecutorSystemType = test.ExecutorSystemType,
+                ExecutorUserType = test.ExecutorUserType,
+                Status = SharedTestStatus.Draft,
+                SubmittedBy = currentUser,
+                SubmittedAt = DateTime.UtcNow
+            };
+
+            _context.SharedTestLibrary.Add(shared);
+            await _context.SaveChangesAsync();
+
+            test.SharedLibrarySourceId = shared.ID;
+            await _context.SaveChangesAsync();
+
+            StatusMessage = "Your test has been submitted to the Shared Library and is pending review.";
+            return RedirectToPage(new { id });
         }
 
         private bool TestExists(int id)

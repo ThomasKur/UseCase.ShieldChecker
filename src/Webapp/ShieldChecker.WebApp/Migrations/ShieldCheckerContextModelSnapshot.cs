@@ -17,7 +17,7 @@ namespace ShieldChecker.WebApp.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -173,6 +173,112 @@ namespace ShieldChecker.WebApp.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestConsumption", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ConsumedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SharedTestDefinitionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ConsumedByUserId");
+
+                    b.HasIndex("SharedTestDefinitionId", "ConsumedByUserId")
+                        .IsUnique();
+
+                    b.ToTable("SharedTestConsumption", (string)null);
+                });
+
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ElevationRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ExecutorSystemType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExecutorUserType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExpectedAlertTitle")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("MitreTechnique")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("OperatingSystem")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScriptCleanup")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ScriptPrerequisites")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ScriptTest")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubmittedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ApprovedById");
+
+                    b.HasIndex("SubmittedById");
+
+                    b.ToTable("SharedTestDefinition", (string)null);
+                });
+
             modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SystemStatus", b =>
                 {
                     b.Property<int>("ID")
@@ -278,11 +384,16 @@ namespace ShieldChecker.WebApp.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SharedLibrarySourceId")
+                        .HasColumnType("int");
+
                     b.HasKey("ID");
 
                     b.HasIndex("CreatedById");
 
                     b.HasIndex("ModifiedById");
+
+                    b.HasIndex("SharedLibrarySourceId");
 
                     b.ToTable("TestDefinition", (string)null);
 
@@ -414,6 +525,43 @@ namespace ShieldChecker.WebApp.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestConsumption", b =>
+                {
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "ConsumedBy")
+                        .WithMany()
+                        .HasForeignKey("ConsumedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", "SharedTestDefinition")
+                        .WithMany("Consumptions")
+                        .HasForeignKey("SharedTestDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ConsumedBy");
+
+                    b.Navigation("SharedTestDefinition");
+                });
+
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
+                {
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "SubmittedBy")
+                        .WithMany()
+                        .HasForeignKey("SubmittedById")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedBy");
+
+                    b.Navigation("SubmittedBy");
+                });
+
             modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestDefinition", b =>
                 {
                     b.HasOne("ShieldChecker.WebApp.Models.Db.UserInfo", "CreatedBy")
@@ -428,9 +576,16 @@ namespace ShieldChecker.WebApp.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", "SharedLibrarySource")
+                        .WithMany()
+                        .HasForeignKey("SharedLibrarySourceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("CreatedBy");
 
                     b.Navigation("ModifiedBy");
+
+                    b.Navigation("SharedLibrarySource");
                 });
 
             modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestJob", b =>
@@ -442,6 +597,11 @@ namespace ShieldChecker.WebApp.Migrations
                         .IsRequired();
 
                     b.Navigation("UseCase");
+                });
+
+            modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.SharedTestDefinition", b =>
+                {
+                    b.Navigation("Consumptions");
                 });
 
             modelBuilder.Entity("ShieldChecker.WebApp.Models.Db.TestDefinition", b =>

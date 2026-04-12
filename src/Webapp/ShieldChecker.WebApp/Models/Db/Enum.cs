@@ -66,4 +66,10 @@
         Undetermined
     }
 
+    public enum SharedTestStatus
+    {
+        Draft,
+        Approved
+    }
+
 }
