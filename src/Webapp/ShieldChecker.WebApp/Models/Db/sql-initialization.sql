@@ -12,8 +12,8 @@ ELSE
 
 /* Create Settings Entry */
 IF NOT EXISTS (SELECT * FROM Settings WHERE ID = 1)
-    INSERT INTO Settings (ID, MaxWorkerCount, JobTimeout,JobReview, WorkerVMSize, DcVMSize, DcVMImage, WorkerVMWindowsImage, WorkerVMLinuxImage, DomainFQDN, DomainControllerName, MDEWindowsOnboardingScript, MDELinuxOnboardingScript)
-    VALUES (1, 5, 120,0, 'Standard_B2ms', 'Standard_B2ms', 'MicrosoftWindowsServer:WindowsServer:2022-datacenter-g2:latest', 'MicrosoftWindowsDesktop:Windows-11:win11-21h2-ent:latest', 'Canonical:ubuntu-24_04-lts:server:latest', '_DomainFQDN_', 'dc01', '', '');
+    INSERT INTO Settings (ID, MaxWorkerCount, JobTimeout,JobReview, WorkerVMCpuCount, WorkerVMMemoryMB, DcVMCpuCount, DcVMMemoryMB, VMStoragePath, DcVMImage, WorkerVMWindowsImage, WorkerVMLinuxImage, DomainFQDN, DomainControllerName, MDEWindowsOnboardingScript, MDELinuxOnboardingScript)
+    VALUES (1, 5, 120,0, 2, 4096, 2, 4096, 'C:\HyperV\VMs', '', '', '', '_DomainFQDN_', 'dc01', '', '');
 
 /* Create System User Info */
 IF NOT EXISTS (SELECT * FROM UserInfo WHERE Id = '00000000-0000-0000-0000-000000000000')

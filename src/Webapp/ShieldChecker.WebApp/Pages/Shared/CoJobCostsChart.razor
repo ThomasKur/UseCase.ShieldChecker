@@ -5,18 +5,17 @@
 
 <div class="card">
     <h2 class="card-header">
-        Approx Azure Costs
+        Approx Job Volume
     </h2>
     <div class="card-body">
         <canvas id="chart-job-costs" style="max-height:300px;"></canvas>
-        Price in USD with B2ms VMSize and average Runtime of @_workerTimeout minutes.
+        Job execution volume over the last 30 days.
     </div>
 </div>
 
 @code {
     private List<string> _labels = new();
-    private List<double> _costData = new();
-    private int _workerTimeout;
+    private List<double> _jobCountData = new();
 
     protected override void OnInitialized()
     {
@@ -26,14 +25,11 @@
             .Select(g => new { Date = g.Key.Date, Count = g.Count() })
             .ToList();
 
-        var settings = Context.Settings.FirstOrDefault();
-        _workerTimeout = settings?.JobTimeout ?? 60;
-
         for (var d = DateTime.Now.AddDays(-30).Date; d < DateTime.Now.Date; d = d.AddDays(1))
         {
             _labels.Add(d.ToShortDateString());
             var count = jobStatusTotal.FirstOrDefault(j => j.Date == d)?.Count ?? 0;
-            _costData.Add(Math.Round(count * (_workerTimeout / 60.0) * 0.09, 4));
+            _jobCountData.Add(count);
         }
     }
 
@@ -51,8 +47,8 @@
                 {
                     new
                     {
-                        label = "Cost (USD)",
-                        data = _costData,
+                        label = "Jobs",
+                        data = _jobCountData,
                         backgroundColor = "rgba(59,125,221,0.2)",
                         borderColor = "rgb(59,125,221)",
                         fill = true,
@@ -68,7 +64,7 @@
                 scales = new
                 {
                     x = new { stacked = true, ticks = new { maxRotation = 0, autoSkip = true } },
-                    y = new { stacked = true, title = new { display = true, text = "Costs in USD" } }
+                    y = new { stacked = true, title = new { display = true, text = "Job Count" } }
                 }
             }
         };
