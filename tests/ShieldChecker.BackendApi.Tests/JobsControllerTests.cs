@@ -150,6 +150,22 @@ namespace ShieldChecker.BackendApi.Tests
             Assert.Equal(4, _context.TestJobs.Count());
         }
 
+        [Fact]
+        public async Task BulkRerun_WritesAuditEntryPerJob()
+        {
+            var j1 = AddJob(JobStatus.Completed);
+            var j2 = AddJob(JobStatus.Error);
+
+            var req = new BulkJobRequest { Ids = new List<int> { j1.ID, j2.ID } };
+            await _controller.BulkRerun(req, CancellationToken.None);
+
+            var audits = _context.AuditLogs.Where(a => a.Action == "BulkRerun").ToList();
+            Assert.Equal(2, audits.Count);
+            Assert.All(audits, a => Assert.Equal("TestJob", a.EntityType));
+            Assert.Contains(audits, a => a.Details == $"Rerun of job {j1.ID}");
+            Assert.Contains(audits, a => a.Details == $"Rerun of job {j2.ID}");
+        }
+
         public void Dispose()
         {
             _context.Dispose();

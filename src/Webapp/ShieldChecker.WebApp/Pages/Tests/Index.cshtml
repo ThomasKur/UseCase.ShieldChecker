@@ -121,18 +121,51 @@
     var nextDisabled = !Model.Test.HasNextPage ? "disabled" : "";
 }
 
-<a asp-page="./Index"
-   asp-route-pageIndex="@(Model.Test.PageIndex - 1)"
-   asp-route-currentFilter="@Model.CurrentFilter"
-   class="btn btn-primary @prevDisabled">
-    Previous
-</a>
-<a asp-page="./Index"
-   asp-route-pageIndex="@(Model.Test.PageIndex + 1)"
-   asp-route-currentFilter="@Model.CurrentFilter"
-   class="btn btn-primary @nextDisabled">
-    Next
-</a>
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <span class="text-muted">
+        @Model.Test.TotalCount test(s) found &mdash; Page @Model.Test.PageIndex of @Model.Test.TotalPages
+    </span>
+
+    <nav aria-label="Test page navigation">
+        <ul class="pagination mb-0">
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="1" asp-route-currentFilter="@Model.CurrentFilter">First</a>
+            </li>
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.Test.PageIndex - 1)" asp-route-currentFilter="@Model.CurrentFilter">Previous</a>
+            </li>
+
+            @{
+                int startPage = Math.Max(1, Model.Test.PageIndex - 2);
+                int endPage = Math.Min(Model.Test.TotalPages, Model.Test.PageIndex + 2);
+
+                if (startPage > 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+
+                for (int i = startPage; i <= endPage; i++)
+                {
+                    <li class="page-item @(i == Model.Test.PageIndex ? "active" : "")">
+                        <a class="page-link" asp-page="./Index" asp-route-pageIndex="@i" asp-route-currentFilter="@Model.CurrentFilter">@i</a>
+                    </li>
+                }
+
+                if (endPage < Model.Test.TotalPages)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+            }
+
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.Test.PageIndex + 1)" asp-route-currentFilter="@Model.CurrentFilter">Next</a>
+            </li>
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@Model.Test.TotalPages" asp-route-currentFilter="@Model.CurrentFilter">Last</a>
+            </li>
+        </ul>
+    </nav>
+</div>
 
 @section Scripts {
     <script>

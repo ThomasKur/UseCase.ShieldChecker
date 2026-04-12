@@ -146,6 +146,15 @@ namespace ShieldChecker.BackendApi.Controllers
             _context.TestJobs.AddRange(newJobs);
             await _context.SaveChangesAsync(ct);
             _cache.Remove(AllJobsCacheKey);
+
+            var oid = Request.Headers["X-User-Oid"].FirstOrDefault();
+            var name = Request.Headers["X-User-Name"].FirstOrDefault();
+            var upn = Request.Headers["X-User-Upn"].FirstOrDefault();
+            foreach (var (original, newJob) in originals.Zip(newJobs))
+            {
+                await _audit.LogAsync("TestJob", newJob.ID, "BulkRerun", oid, name, upn, $"Rerun of job {original.ID}", ct);
+            }
+
             return Ok(new { queued = newJobs.Count, ids = newJobs.Select(j => j.ID) });
         }
     }

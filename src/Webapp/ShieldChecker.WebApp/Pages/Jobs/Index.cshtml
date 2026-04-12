@@ -90,13 +90,48 @@
     var nextDisabled = !Model.TestJob.HasNextPage ? "disabled" : "";
 }
 
-<a asp-page="./Index"
-   asp-route-pageIndex="@(Model.TestJob.PageIndex - 1)"
-   class="btn btn-primary @prevDisabled">
-    Previous
-</a>
-<a asp-page="./Index"
-   asp-route-pageIndex="@(Model.TestJob.PageIndex + 1)"
-   class="btn btn-primary @nextDisabled">
-    Next
-</a>
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <span class="text-muted">
+        @Model.TestJob.TotalCount job(s) found &mdash; Page @Model.TestJob.PageIndex of @Model.TestJob.TotalPages
+    </span>
+
+    <nav aria-label="Job page navigation">
+        <ul class="pagination mb-0">
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="1">First</a>
+            </li>
+            <li class="page-item @prevDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.TestJob.PageIndex - 1)">Previous</a>
+            </li>
+
+            @{
+                int startPage = Math.Max(1, Model.TestJob.PageIndex - 2);
+                int endPage = Math.Min(Model.TestJob.TotalPages, Model.TestJob.PageIndex + 2);
+
+                if (startPage > 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+
+                for (int i = startPage; i <= endPage; i++)
+                {
+                    <li class="page-item @(i == Model.TestJob.PageIndex ? "active" : "")">
+                        <a class="page-link" asp-page="./Index" asp-route-pageIndex="@i">@i</a>
+                    </li>
+                }
+
+                if (endPage < Model.TestJob.TotalPages)
+                {
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                }
+            }
+
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@(Model.TestJob.PageIndex + 1)">Next</a>
+            </li>
+            <li class="page-item @nextDisabled">
+                <a class="page-link" asp-page="./Index" asp-route-pageIndex="@Model.TestJob.TotalPages">Last</a>
+            </li>
+        </ul>
+    </nav>
+</div>
