@@ -88,7 +88,7 @@
                     } else {
                         <a asp-page="./Details" asp-route-id="@item.ID"><i class="fa-regular fa-eye" data-toggle="tooltip" title="View"></i></a>
                     }
-                    <a asp-page-handler="Schedule" asp-route-id="@item.ID"><i class="fa-solid fa-play" data-toggle="tooltip" title="Schedule Test"></i></a>
+                    <a href="@Url.Page("./Index", "Schedule", new { id = item.ID })" class="schedule-test-link" data-test-id="@item.ID"><i id="schedule-icon-@item.ID" class="fa-solid fa-play" data-toggle="tooltip" title="Schedule Test"></i></a>
                     @if (item.ReadOnly == null || !item.ReadOnly.Value)
                     {
                         <a asp-page="./Delete" asp-route-id="@item.ID"><i class="fa-regular fa-trash-can" data-toggle="tooltip" title="Delete"></i></a>
@@ -136,6 +136,32 @@
 
 @section Scripts {
     <script>
+        document.querySelectorAll('.schedule-test-link').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                var testId = this.dataset.testId;
+                var icon = document.getElementById('schedule-icon-' + testId);
+                icon.className = 'fa-solid fa-clock';
+                fetch(this.href, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        icon.className = 'fa-solid fa-triangle-exclamation';
+                        setTimeout(function () {
+                            icon.className = 'fa-solid fa-play';
+                        }, 3000);
+                    }
+                })
+                .catch(function () {
+                    icon.className = 'fa-solid fa-triangle-exclamation';
+                    setTimeout(function () {
+                        icon.className = 'fa-solid fa-play';
+                    }, 3000);
+                });
+            });
+        });
         // Initialize Bootstrap tooltips
         document.addEventListener('DOMContentLoaded', function () {
             var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
