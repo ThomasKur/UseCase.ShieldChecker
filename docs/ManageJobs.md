@@ -28,10 +28,13 @@ Running individual tests provides immediate feedback on specific detection capab
 
 #### Step 2: Initiate Test Execution
 
-1. **Click the start icon** next to your selected test
-2. **Monitor job creation** - you'll be redirected to the jobs page
+1. **Click the start icon** (play button) next to your selected test
+2. **Monitor job creation** - the play icon changes to a clock icon, confirming the job has been queued
+3. **Start additional tests** - you remain on the Tests page and can immediately schedule more tests
 
 ![Start Test Execution](img/ShieldChecker-StartTest-01.png)
+
+> **Tip:** You can start multiple tests in quick succession without navigating away from the Tests page. Each test's icon will change to a clock to confirm it has been queued.
 
 #### Test Execution Process
 
