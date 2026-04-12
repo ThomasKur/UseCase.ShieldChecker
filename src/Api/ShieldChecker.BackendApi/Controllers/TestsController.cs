@@ -198,6 +198,7 @@ namespace ShieldChecker.BackendApi.Controllers
             }).ToList();
             _context.TestJobs.AddRange(newJobs);
             await _context.SaveChangesAsync(ct);
+            _cache.Remove("jobs:all");
             return Ok(new { queued = newJobs.Count, ids = newJobs.Select(j => j.ID) });
         }
     }
