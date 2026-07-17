@@ -78,6 +78,11 @@ builder.Services.AddControllers();
 // ── Audit Service ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<ShieldChecker.BackendApi.Services.AuditService>();
 
+// ── Background Services ──────────────────────────────────────────────────────
+builder.Services.AddHostedService<ShieldChecker.BackendApi.Services.AutoSchedulerService>();
+builder.Services.AddHostedService<ShieldChecker.BackendApi.Services.MdeAlertDetectionService>();
+builder.Services.AddHostedService<ShieldChecker.BackendApi.Services.JobTimeoutService>();
+
 var app = builder.Build();
 
 // Initialise / validate the database on startup

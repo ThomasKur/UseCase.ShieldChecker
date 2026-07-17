@@ -31,6 +31,12 @@ namespace ShieldChecker.HostService.Core
         [JsonPropertyName("vmStoragePath")]
         public string VMStoragePath { get; set; } = string.Empty;
 
+        [JsonPropertyName("mdeWindowsOnboardingScript")]
+        public string MdeWindowsOnboardingScript { get; set; } = string.Empty;
+
+        [JsonPropertyName("mdeLinuxOnboardingScript")]
+        public string MdeLinuxOnboardingScript { get; set; } = string.Empty;
+
         /// <summary>
         /// Returns the VHDX image path for the given operating system.
         /// </summary>
@@ -39,6 +45,16 @@ namespace ShieldChecker.HostService.Core
             OperatingSystem.Windows => WorkerVMWindowsImage,
             OperatingSystem.Linux   => WorkerVMLinuxImage,
             _                       => throw new NotSupportedException($"No image configured for OS {os}.")
+        };
+
+        /// <summary>
+        /// Returns the MDE onboarding script content for the given operating system.
+        /// </summary>
+        public string GetMdeOnboardingScriptForOs(OperatingSystem os) => os switch
+        {
+            OperatingSystem.Windows => MdeWindowsOnboardingScript,
+            OperatingSystem.Linux   => MdeLinuxOnboardingScript,
+            _                       => string.Empty
         };
     }
 }

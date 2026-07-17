@@ -43,7 +43,9 @@ namespace ShieldChecker.HostServiceApi.Controllers
                 settings.DcVMCpuCount,
                 settings.DcVMMemoryMB,
                 settings.DcVMImage,
-                settings.VMStoragePath
+                settings.VMStoragePath,
+                MdeWindowsOnboardingScript = settings.MDEWindowsOnboardingScript,
+                MdeLinuxOnboardingScript = settings.MDELinuxOnboardingScript
             };
 
             return Ok(result);

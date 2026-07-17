@@ -52,7 +52,7 @@ namespace ShieldChecker.HostServiceApi.Controllers
                 return NotFound();
             }
 
-            job.Status = update.Status.HasValue ? (JobStatus)update.Status.Value : JobStatus.Completed;
+            job.Status = update.Status.HasValue ? (JobStatus)update.Status.Value : JobStatus.WaitingForDetection;
             job.TestOutput = update.TestOutput;
             job.SchedulerLog = update.ExecutorOutput;
             job.WorkerEnd = DateTime.UtcNow;
