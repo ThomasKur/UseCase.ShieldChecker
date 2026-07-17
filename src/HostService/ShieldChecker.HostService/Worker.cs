@@ -107,7 +107,7 @@ namespace ShieldChecker.HostService
                             {
                                 ExecutorOutput = executorOutput,
                                 TestOutput = testOutput,
-                                Status = 2
+                                Status = 2 // WaitingForDetection – the MDE alert detection service will handle final completion
                             };
                             await engine.UpdateJobAsync(update, stoppingToken);
                         }

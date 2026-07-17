@@ -133,6 +133,21 @@ namespace ShieldChecker.HostService.Core
                 hyperV.CreateVm(vmName, imagePath, settings.WorkerVMCpuCount, settings.WorkerVMMemoryMB, settings.VMStoragePath);
                 hyperV.StartVmAndWait(vmName);
 
+                // Run MDE onboarding script before test execution so Defender can detect attacks
+                string onboardingScript = settings.GetMdeOnboardingScriptForOs(jobDefinition.OperatingSystem);
+                if (!string.IsNullOrWhiteSpace(onboardingScript))
+                {
+                    _logger.LogInformation("Executing MDE onboarding script in VM '{VmName}'.", vmName);
+                    hyperV.RunScriptInVm(vmName, onboardingScript, adminUsername, adminPassword);
+                    _logger.LogInformation("MDE onboarding completed in VM '{VmName}'. Waiting for agent registration.", vmName);
+                    // Allow time for the MDE agent to register with the service
+                    Thread.Sleep(TimeSpan.FromSeconds(60));
+                }
+                else
+                {
+                    _logger.LogWarning("No MDE onboarding script configured for OS {Os}. MDE will not be active on the VM.", jobDefinition.OperatingSystem);
+                }
+
                 _logger.LogInformation("Executing prerequisites script in VM '{VmName}'.", vmName);
                 hyperV.RunScriptInVm(vmName, jobDefinition.ScriptPrerequisites, adminUsername, adminPassword);
 

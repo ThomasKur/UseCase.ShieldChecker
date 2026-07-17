@@ -70,6 +70,33 @@ namespace ShieldChecker.HostServiceApi.Controllers
             job.Modified = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
 
+            // Determine credentials based on executor user type
+            string? username = null;
+            string? password = null;
+            string? domain = null;
+
+            switch (job.UseCase.ExecutorUserType)
+            {
+                case ExecutorUserType.local_admin:
+                    // Local admin credentials are provided by the HostService configuration.
+                    // The HostService uses its own HyperV:AdminUsername/AdminPassword for local admin execution.
+                    break;
+                case ExecutorUserType.domain_admin:
+                    username = $"Administrator@{settings.DomainFQDN}";
+                    domain = settings.DomainFQDN;
+                    // Password is managed by the DC provisioning process
+                    break;
+                case ExecutorUserType.domain_user:
+                    username = $"testuser@{settings.DomainFQDN}";
+                    domain = settings.DomainFQDN;
+                    // Password is managed by the DC provisioning process
+                    break;
+                case ExecutorUserType.System:
+                default:
+                    // Run as SYSTEM – no credentials needed
+                    break;
+            }
+
             var response = new
             {
                 job.UseCase.ID,
@@ -81,9 +108,9 @@ namespace ShieldChecker.HostServiceApi.Controllers
                 OperatingSystem = (int)job.UseCase.OperatingSystem,
                 ExecutorSystemType = (int)job.UseCase.ExecutorSystemType,
                 ExecutorUserType = (int)job.UseCase.ExecutorUserType,
-                Username = (string?)null,
-                Password = (string?)null,
-                Domain = (string?)null
+                Username = username,
+                Password = password,
+                Domain = domain
             };
 
             _logger.LogInformation("Assigned job {JobId} to worker '{Worker}'.", job.ID, safeWorkerName);

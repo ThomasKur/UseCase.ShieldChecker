@@ -22,4 +22,8 @@
     <ProjectReference Include="..\ShieldChecker.DataAccess\ShieldChecker.DataAccess.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ShieldChecker.BackendApi.Tests" />
+  </ItemGroup>
+
 </Project>
